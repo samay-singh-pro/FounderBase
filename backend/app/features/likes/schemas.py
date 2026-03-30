@@ -1,0 +1,32 @@
+"""Pydantic schemas for like responses"""
+
+from datetime import datetime
+
+from pydantic import BaseModel
+
+
+class LikeResponse(BaseModel):
+    """Response after liking an opportunity"""
+    
+    message: str
+    liked: bool
+    total_likes: int
+
+
+class LikeStatus(BaseModel):
+    """Check if user has liked an opportunity"""
+    
+    opportunity_id: str
+    is_liked: bool
+    total_likes: int
+
+
+class LikeDetail(BaseModel):
+    """Detailed like information"""
+    
+    model_config = {"from_attributes": True}
+    
+    id: str
+    opportunity_id: str
+    user_id: str
+    created_at: datetime

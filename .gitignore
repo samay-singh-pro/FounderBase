@@ -1,0 +1,37 @@
+# macOS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# local env files
+.env
+.env.*
+!.env.example
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+
+# Build/test/cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+
+# Packaging
+build/
+dist/
+*.egg-info/
+
+# Local runtime files
+*.log
+*.db
+*.sqlite3
