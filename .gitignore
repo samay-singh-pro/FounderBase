@@ -35,3 +35,9 @@ dist/
 *.log
 *.db
 *.sqlite3
+
+# Node / Frontend
+node_modules/
+dist/
+.npm
+.eslintcache
