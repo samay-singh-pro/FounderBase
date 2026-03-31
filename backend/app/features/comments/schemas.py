@@ -1,8 +1,8 @@
 """Pydantic schemas for comment requests and responses"""
 
-from datetime import datetime
-
-from pydantic import BaseModel, Field
+from datetime import datetime, timezone
+from pydantic import BaseModel, Field, field_serializer
+from typing import Any
 
 
 class CommentCreate(BaseModel):
@@ -44,7 +44,17 @@ class CommentPublic(BaseModel):
     content: str
     opportunity_id: str
     user_id: str
+    username: str = Field(default="", description="Username of the commenter")
     created_at: datetime
+    is_owner: bool = Field(default=False, description="Whether the current user owns this comment")
+    
+    @field_serializer('created_at')
+    def serialize_datetime(self, dt: datetime, _info: Any) -> str:
+        """Serialize datetime to ISO format with UTC timezone"""
+        if dt.tzinfo is None:
+            # If timezone-naive, assume it's UTC
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
 
 
 class CommentList(BaseModel):

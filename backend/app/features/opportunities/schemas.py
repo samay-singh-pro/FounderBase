@@ -1,10 +1,10 @@
 """Pydantic schemas for opportunity requests and responses"""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
-from typing import Literal
+from typing import Literal, Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_serializer
 
 
 class SortField(str, Enum):
@@ -76,6 +76,20 @@ class OpportunityPublic(BaseModel):
     user_id: str
     created_at: datetime
     status: str
+    
+    # Engagement metrics (computed fields)
+    likes_count: int = Field(default=0, description="Total number of likes")
+    comments_count: int = Field(default=0, description="Total number of comments")
+    is_liked: bool = Field(default=False, description="Whether current user has liked this opportunity")
+    is_bookmarked: bool = Field(default=False, description="Whether current user has bookmarked this opportunity")
+    
+    @field_serializer('created_at')
+    def serialize_datetime(self, dt: datetime, _info: Any) -> str:
+        """Serialize datetime to ISO format with UTC timezone"""
+        if dt.tzinfo is None:
+            # If timezone-naive, assume it's UTC
+            dt = dt.replace(tzinfo=timezone.utc)
+        return dt.isoformat()
 
 
 class OpportunityList(BaseModel):

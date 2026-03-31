@@ -7,6 +7,7 @@ class UserCreate(BaseModel):
     """Schema for user registration"""
     
     email: EmailStr
+    username: str = Field(min_length=3, max_length=50, description="Username (3-50 characters, alphanumeric and underscores)")
     password: str = Field(min_length=8, description="Password must be at least 8 characters")
     
     model_config = {
@@ -14,6 +15,7 @@ class UserCreate(BaseModel):
             "examples": [
                 {
                     "email": "user@example.com",
+                    "username": "john_doe",
                     "password": "securePassword123"
                 }
             ]
@@ -35,6 +37,7 @@ class UserPublic(BaseModel):
     
     id: int
     email: EmailStr
+    username: str
 
 
 class Token(BaseModel):
@@ -42,3 +45,4 @@ class Token(BaseModel):
     
     access_token: str
     token_type: str = "bearer"
+    user: UserPublic

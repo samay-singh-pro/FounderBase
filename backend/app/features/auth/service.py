@@ -47,6 +47,20 @@ def get_user_by_id(db: Session, user_id: int) -> User | None:
     return db.query(User).filter(User.id == user_id).first()
 
 
+def get_user_by_username(db: Session, username: str) -> User | None:
+    """
+    Retrieve a user by username.
+    
+    Args:
+        db: Database session
+        username: User's username
+        
+    Returns:
+        User object if found, None otherwise
+    """
+    return db.scalars(select(User).where(User.username == username)).first()
+
+
 def register_user(db: Session, user_in: UserCreate) -> User:
     """
     Register a new user.
@@ -59,7 +73,7 @@ def register_user(db: Session, user_in: UserCreate) -> User:
         Created User object
         
     Raises:
-        HTTPException: If email already registered
+        HTTPException: If email or username already registered
     """
     # Check if email already exists
     if get_user_by_email(db, user_in.email):
@@ -68,9 +82,17 @@ def register_user(db: Session, user_in: UserCreate) -> User:
             detail="Email already registered",
         )
     
+    # Check if username already exists
+    if get_user_by_username(db, user_in.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already taken",
+        )
+    
     # Create user
     user = User(
         email=user_in.email,
+        username=user_in.username,
         hashed_password=_hash_password(user_in.password),
     )
     

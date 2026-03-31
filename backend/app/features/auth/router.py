@@ -67,4 +67,7 @@ def login(
         data={"sub": str(user.id), "email": user.email}
     )
     
-    return Token(access_token=access_token)
+    return Token(
+        access_token=access_token,
+        user=UserPublic.model_validate(user)
+    )

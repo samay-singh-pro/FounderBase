@@ -3,7 +3,9 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.db.connection import get_db
 from app.features.auth.dependencies import get_current_user
@@ -18,6 +20,35 @@ from app.features.opportunities.schemas import (
 )
 
 router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
+
+
+# Optional authentication dependency
+async def get_current_user_optional(
+    db: Session = Depends(get_db),
+    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
+) -> Optional[User]:
+    """
+    Get current user if authenticated, otherwise return None.
+    This allows endpoints to work for both authenticated and non-authenticated users.
+    """
+    if credentials is None:
+        return None
+    
+    from app.core.security import decode_access_token
+    from app.features.auth.service import get_user_by_email
+    
+    token = credentials.credentials
+    payload = decode_access_token(token)
+    
+    if payload is None:
+        return None
+    
+    email: str | None = payload.get("email")
+    if email is None:
+        return None
+    
+    user = get_user_by_email(db, email)
+    return user
 
 
 @router.post(
@@ -76,7 +107,7 @@ def get_opportunity(
     "",
     response_model=OpportunityList,
     summary="List opportunities",
-    description="Get paginated list of opportunities with filters, search, and sorting (public access)"
+    description="Get paginated list of opportunities with filters, search, sorting, and engagement metrics"
 )
 def list_opportunities(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -90,9 +121,10 @@ def list_opportunities(
     sort_by: SortField = Query(SortField.created_at, description="Field to sort by"),
     sort_order: SortOrder = Query(SortOrder.desc, description="Sort order: asc or desc"),
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> OpportunityList:
     """
-    List opportunities with advanced filtering, search, and sorting.
+    List opportunities with advanced filtering, search, sorting, and engagement metrics.
     
     **Pagination:**
     - **skip**: Records to skip (default: 0)
@@ -112,8 +144,14 @@ def list_opportunities(
     - **sort_by**: Field to sort by (created_at, title, category, type, status)
     - **sort_order**: Sort direction (asc, desc)
     
-    No authentication required.
+    **Engagement Metrics:**
+    - Each opportunity includes likes_count, comments_count
+    - If authenticated: is_liked and is_bookmarked show your interaction status
+    
+    Authentication is optional. Include Bearer token for personalized data.
     """
+    current_user_id = str(current_user.id) if current_user else None
+    
     opportunities, total = service.get_opportunities(
         db=db,
         skip=skip,
@@ -126,10 +164,11 @@ def list_opportunities(
         created_before=created_before,
         sort_by=sort_by.value,
         sort_order=sort_order.value,
+        current_user_id=current_user_id,
     )
     
     return OpportunityList(
-        opportunities=[OpportunityPublic.model_validate(opp) for opp in opportunities],
+        opportunities=[OpportunityPublic(**opp) for opp in opportunities],
         total=total,
         skip=skip,
         limit=limit,

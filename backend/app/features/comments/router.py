@@ -2,6 +2,7 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from app.db.connection import get_db
 from app.features.auth.dependencies import get_current_user
@@ -9,6 +10,7 @@ from app.features.auth.models import User
 from app.features.comments import service
 from app.features.comments.schemas import CommentCreate, CommentList, CommentPublic, CommentUpdate
 from app.features.opportunities.service import get_opportunity_by_id
+from app.features.opportunities.router import get_current_user_optional
 
 router = APIRouter(tags=["Comments"])
 
@@ -48,29 +50,39 @@ def create_comment(
     user_id = str(current_user.id)
     comment = service.create_comment(db, user_id, opportunity_id, comment_data)
     
-    return CommentPublic.model_validate(comment)
+    # Return comment with username and ownership
+    return CommentPublic(
+        id=comment.id,
+        content=comment.content,
+        opportunity_id=comment.opportunity_id,
+        user_id=comment.user_id,
+        username=current_user.username,
+        created_at=comment.created_at,
+        is_owner=True
+    )
 
 
 @router.get(
     "/opportunities/{opportunity_id}/comments",
     response_model=CommentList,
     summary="Get all comments for an opportunity",
-    description="Retrieve all comments on an opportunity (public access)"
+    description="Retrieve all comments with usernames and ownership info"
 )
 def get_comments(
     opportunity_id: str,
     skip: int = 0,
     limit: int = 50,
     db: Session = Depends(get_db),
+    current_user: Optional[User] = Depends(get_current_user_optional),
 ) -> CommentList:
     """
-    Get all comments for an opportunity.
+    Get all comments for an opportunity with usernames and ownership flags.
     
     **Query parameters:**
     - **skip**: Records to skip for pagination (default: 0)
     - **limit**: Max records to return (default: 50, max: 100)
     
-    No authentication required - anyone can view comments.
+    Authentication is optional. If authenticated, is_owner will be set for your comments.
     """
     # Verify opportunity exists
     opportunity = get_opportunity_by_id(db, opportunity_id)
@@ -84,15 +96,18 @@ def get_comments(
     if limit > 100:
         limit = 100
     
+    current_user_id = str(current_user.id) if current_user else None
+    
     comments, total = service.get_comments_by_opportunity(
         db=db,
         opportunity_id=opportunity_id,
+        current_user_id=current_user_id,
         skip=skip,
         limit=limit
     )
     
     return CommentList(
-        comments=[CommentPublic.model_validate(c) for c in comments],
+        comments=[CommentPublic(**c) for c in comments],
         total=total
     )
 

@@ -1,9 +1,11 @@
 """Comment business logic"""
 
 from sqlalchemy.orm import Session
+from sqlalchemy import String
 
 from app.features.comments.models import Comment
 from app.features.comments.schemas import CommentCreate
+from app.features.auth.models import User
 
 
 def create_comment(
@@ -40,34 +42,55 @@ def create_comment(
 def get_comments_by_opportunity(
     db: Session,
     opportunity_id: str,
+    current_user_id: str | None = None,
     skip: int = 0,
     limit: int = 50
-) -> tuple[list[Comment], int]:
+) -> tuple[list[dict], int]:
     """
-    Get all comments for an opportunity.
+    Get all comments for an opportunity with username and ownership info.
     
     Args:
         db: Database session
         opportunity_id: ID of the opportunity
+        current_user_id: ID of current authenticated user (optional)
         skip: Number of records to skip
         limit: Maximum records to return
         
     Returns:
-        Tuple of (comments list, total count)
+        Tuple of (comments list with username and is_owner, total count)
     """
-    query = db.query(Comment).filter(Comment.opportunity_id == opportunity_id)
+    # Join Comment with User to get username
+    # Cast User.id to string for the join since comment.user_id is stored as string
+    query = (
+        db.query(Comment, User.username)
+        .join(User, Comment.user_id == User.id.cast(String))
+        .filter(Comment.opportunity_id == opportunity_id)
+    )
     
     # Get total count
     total = query.count()
     
-    # Get comments ordered by created_at (latest first)
-    comments = (
+    # Get comments ordered by created_at (oldest first for natural conversation flow)
+    results = (
         query
-        .order_by(Comment.created_at.desc())
+        .order_by(Comment.created_at.asc())
         .offset(skip)
         .limit(limit)
         .all()
     )
+    
+    # Convert to dictionaries with username and ownership info
+    comments = []
+    for comment, username in results:
+        comments.append({
+            'id': comment.id,
+            'content': comment.content,
+            'opportunity_id': comment.opportunity_id,
+            'user_id': comment.user_id,
+            'username': username,
+            'created_at': comment.created_at,
+            'is_owner': current_user_id == comment.user_id if current_user_id else False,
+        })
     
     return comments, total
 
