@@ -42,6 +42,11 @@ class OpportunityCreate(BaseModel):
         max_length=100,
         description="Category (e.g., food, farming, tech, government, education, health)"
     )
+    link: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional external URL link related to this opportunity"
+    )
     
     model_config = {
         "json_schema_extra": {
@@ -63,6 +68,37 @@ class OpportunityCreate(BaseModel):
     }
 
 
+class OpportunityUpdate(BaseModel):
+    """Schema for updating an existing opportunity"""
+    
+    title: str | None = Field(
+        default=None,
+        min_length=5,
+        max_length=255,
+        description="Concise title describing the opportunity"
+    )
+    description: str | None = Field(
+        default=None,
+        min_length=20,
+        description="Detailed description with context and impact"
+    )
+    type: Literal["problem", "idea", "improvement"] | None = Field(
+        default=None,
+        description="Type: problem (needs fixing), idea (new concept), improvement (enhancement)"
+    )
+    category: str | None = Field(
+        default=None,
+        min_length=2,
+        max_length=100,
+        description="Category (e.g., food, farming, tech, government, education, health)"
+    )
+    link: str | None = Field(
+        default=None,
+        max_length=500,
+        description="Optional external URL link related to this opportunity"
+    )
+
+
 class OpportunityPublic(BaseModel):
     """Public opportunity data (response schema)"""
     
@@ -73,7 +109,9 @@ class OpportunityPublic(BaseModel):
     description: str
     type: str
     category: str
+    link: str | None = None
     user_id: str
+    username: str
     created_at: datetime
     status: str
     

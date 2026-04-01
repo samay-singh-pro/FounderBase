@@ -36,6 +36,7 @@ class Opportunity(Base):
     description: Mapped[str] = mapped_column(Text, nullable=False)
     type: Mapped[str] = mapped_column(String(50), nullable=False, index=True)
     category: Mapped[str] = mapped_column(String(100), nullable=False, index=True)
+    link: Mapped[str | None] = mapped_column(String(500), nullable=True)  # Optional URL link
     
     # User reference
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)

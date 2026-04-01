@@ -3,16 +3,16 @@
 from datetime import datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.db.connection import get_db
-from app.features.auth.dependencies import get_current_user
+from app.features.auth.dependencies import get_current_user, get_current_user_optional
 from app.features.auth.models import User
 from app.features.opportunities import service
 from app.features.opportunities.schemas import (
     OpportunityCreate,
+    OpportunityUpdate,
     OpportunityList,
     OpportunityPublic,
     SortField,
@@ -20,35 +20,6 @@ from app.features.opportunities.schemas import (
 )
 
 router = APIRouter(prefix="/opportunities", tags=["Opportunities"])
-
-
-# Optional authentication dependency
-async def get_current_user_optional(
-    db: Session = Depends(get_db),
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False)),
-) -> Optional[User]:
-    """
-    Get current user if authenticated, otherwise return None.
-    This allows endpoints to work for both authenticated and non-authenticated users.
-    """
-    if credentials is None:
-        return None
-    
-    from app.core.security import decode_access_token
-    from app.features.auth.service import get_user_by_email
-    
-    token = credentials.credentials
-    payload = decode_access_token(token)
-    
-    if payload is None:
-        return None
-    
-    email: str | None = payload.get("email")
-    if email is None:
-        return None
-    
-    user = get_user_by_email(db, email)
-    return user
 
 
 @router.post(
@@ -78,7 +49,98 @@ def create_opportunity(
     user_id = str(current_user.id)
     opportunity = service.create_opportunity(db, user_id, opportunity_data)
     
-    return OpportunityPublic.model_validate(opportunity)
+    # Manually construct response with username
+    return OpportunityPublic(
+        id=str(opportunity.id),
+        title=opportunity.title,
+        description=opportunity.description,
+        type=opportunity.type,
+        category=opportunity.category,
+        link=opportunity.link,
+        user_id=str(opportunity.user_id),
+        username=current_user.username,
+        created_at=opportunity.created_at,
+        status=opportunity.status,
+        likes_count=0,
+        comments_count=0,
+        is_liked=False,
+        is_bookmarked=False,
+    )
+
+
+@router.put(
+    "/{opportunity_id}",
+    response_model=OpportunityPublic,
+    summary="Update an opportunity",
+    description="Update an existing opportunity (requires authentication and ownership)"
+)
+def update_opportunity(
+    opportunity_id: str,
+    opportunity_data: OpportunityUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> OpportunityPublic:
+    """
+    Update an existing opportunity.
+    
+    **Authentication required**: Include Bearer token in Authorization header
+    **Authorization**: You can only update your own opportunities
+    
+    Only the fields you provide will be updated. Omit fields to keep them unchanged.
+    """
+    user_id = str(current_user.id)
+    opportunity = service.update_opportunity(db, opportunity_id, user_id, opportunity_data)
+    
+    if opportunity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Opportunity not found or you don't have permission to update it"
+        )
+    
+    # Manually construct response with username
+    return OpportunityPublic(
+        id=str(opportunity.id),
+        title=opportunity.title,
+        description=opportunity.description,
+        type=opportunity.type,
+        category=opportunity.category,
+        link=opportunity.link,
+        user_id=str(opportunity.user_id),
+        username=current_user.username,
+        created_at=opportunity.created_at,
+        status=opportunity.status,
+        likes_count=0,  # Could query these if needed
+        comments_count=0,
+        is_liked=False,
+        is_bookmarked=False,
+    )
+
+
+@router.delete(
+    "/{opportunity_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete an opportunity",
+    description="Delete an existing opportunity (requires authentication and ownership)"
+)
+def delete_opportunity(
+    opportunity_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> None:
+    """
+    Delete an existing opportunity.
+    
+    **Authentication required**: Include Bearer token in Authorization header
+    **Authorization**: You can only delete your own opportunities
+    """
+    user_id = str(current_user.id)
+    success = service.delete_opportunity(db, opportunity_id, user_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Opportunity not found or you don't have permission to delete it"
+        )
 
 
 @router.get(
@@ -90,9 +152,11 @@ def create_opportunity(
 def get_opportunity(
     opportunity_id: str,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_current_user_optional),
 ) -> OpportunityPublic:
     """Get a single opportunity by ID. No authentication required."""
-    opportunity = service.get_opportunity_by_id(db, opportunity_id)
+    current_user_id = str(current_user.id) if current_user else None
+    opportunity = service.get_opportunity_by_id(db, opportunity_id, current_user_id)
     
     if opportunity is None:
         raise HTTPException(
@@ -100,7 +164,7 @@ def get_opportunity(
             detail="Opportunity not found"
         )
     
-    return OpportunityPublic.model_validate(opportunity)
+    return OpportunityPublic(**opportunity)
 
 
 @router.get(

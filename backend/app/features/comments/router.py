@@ -5,12 +5,11 @@ from sqlalchemy.orm import Session
 from typing import Optional
 
 from app.db.connection import get_db
-from app.features.auth.dependencies import get_current_user
+from app.features.auth.dependencies import get_current_user, get_current_user_optional
 from app.features.auth.models import User
 from app.features.comments import service
 from app.features.comments.schemas import CommentCreate, CommentList, CommentPublic, CommentUpdate
 from app.features.opportunities.service import get_opportunity_by_id
-from app.features.opportunities.router import get_current_user_optional
 
 router = APIRouter(tags=["Comments"])
 
