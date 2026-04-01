@@ -93,7 +93,7 @@ def delete_opportunity(
     user_id: str
 ) -> bool:
     """
-    Delete an existing opportunity.
+    Delete an existing opportunity and all associated data.
     
     Args:
         db: Database session
@@ -112,6 +112,12 @@ def delete_opportunity(
     if str(opportunity.user_id) != str(user_id):
         return False
     
+    # Delete associated comments, likes, and bookmarks (cascade should handle this, but explicit is better)
+    db.query(Comment).filter(Comment.opportunity_id == opportunity_id).delete()
+    db.query(OpportunityLike).filter(OpportunityLike.opportunity_id == opportunity_id).delete()
+    db.query(OpportunityBookmark).filter(OpportunityBookmark.opportunity_id == opportunity_id).delete()
+    
+    # Delete the opportunity
     db.delete(opportunity)
     db.commit()
     
@@ -506,27 +512,3 @@ def update_opportunity_status(
     
     return opportunity
 
-
-def delete_opportunity(db: Session, opportunity_id: str) -> bool:
-    """
-    Delete an opportunity and all associated comments.
-    
-    Args:
-        db: Database session
-        opportunity_id: UUID of opportunity to delete
-        
-    Returns:
-        True if deleted, False if not found
-    """
-    opportunity = get_opportunity_by_id(db, opportunity_id)
-    if opportunity is None:
-        return False
-    
-    from app.features.comments.models import Comment
-    db.query(Comment).filter(Comment.opportunity_id == opportunity_id).delete()
-    
-    # Delete the opportunity
-    db.delete(opportunity)
-    db.commit()
-    
-    return True
