@@ -7,15 +7,17 @@ export interface LoginCredentials {
 
 export interface SignupCredentials {
   email: string
+  username: string
   password: string
 }
 
 export interface AuthResponse {
   access_token: string
   token_type: string
-  user?: {
+  user: {
     id: number
     email: string
+    username: string
   }
 }
 
@@ -31,6 +33,7 @@ export const authService = {
   signup: async (credentials: SignupCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/api/v1/auth/signup', {
       email: credentials.email,
+      username: credentials.username,
       password: credentials.password,
     })
     return response.data

@@ -1,21 +1,35 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authService } from '@/services/auth.service'
+import { useAuthStore } from '@/store/authStore'
 
 export default function AuthPage() {
+  const navigate = useNavigate()
+  const { setAuth, isAuthenticated } = useAuthStore()
+  const [activeTab, setActiveTab] = useState('login')
   const [loginData, setLoginData] = useState({ email: '', password: '' })
-  const [signupData, setSignupData] = useState({ email: '', password: '', confirmPassword: '' })
+  const [signupData, setSignupData] = useState({ email: '', username: '', password: '', confirmPassword: '' })
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [successMessage, setSuccessMessage] = useState<string | null>(null)
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccessMessage(null)
 
     try {
       const response = await authService.login({
@@ -23,15 +37,14 @@ export default function AuthPage() {
         password: loginData.password,
       })
       
-      // Store token
-      localStorage.setItem('access_token', response.access_token)
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user))
-      }
+      console.log('Login response:', response)
       
-      console.log('Login successful:', response)
-      // TODO: Redirect to dashboard or home page
-      alert('Login successful!')
+      // Store token and user in auth store
+      setAuth(response.access_token, response.user)
+      
+      console.log('Auth set, navigating to /')
+      // Redirect to landing page
+      navigate('/', { replace: true })
     } catch (err: any) {
       console.error('Login error:', err)
       setError(err.response?.data?.detail || 'Login failed. Please check your credentials.')
@@ -44,6 +57,7 @@ export default function AuthPage() {
     e.preventDefault()
     setIsLoading(true)
     setError(null)
+    setSuccessMessage(null)
 
     if (signupData.password !== signupData.confirmPassword) {
       setError('Passwords do not match!')
@@ -52,20 +66,18 @@ export default function AuthPage() {
     }
 
     try {
-      const response = await authService.signup({
+      await authService.signup({
         email: signupData.email,
+        username: signupData.username,
         password: signupData.password,
       })
       
-      // Store token
-      localStorage.setItem('access_token', response.access_token)
-      if (response.user) {
-        localStorage.setItem('user', JSON.stringify(response.user))
-      }
+      // Clear signup form
+      setSignupData({ email: '', username: '', password: '', confirmPassword: '' })
       
-      console.log('Signup successful:', response)
-      // TODO: Redirect to dashboard or home page
-      alert('Account created successfully!')
+      // Show success message and switch to login tab
+      setSuccessMessage('Account created successfully! Please sign in.')
+      setActiveTab('login')
     } catch (err: any) {
       console.error('Signup error:', err)
       setError(err.response?.data?.detail || 'Signup failed. Please try again.')
@@ -75,16 +87,20 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-4">
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-slate-900 to-slate-600 dark:from-slate-100 dark:to-slate-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent dark:from-blue-500 dark:to-cyan-400">
             FoundrBase
           </h1>
           <p className="text-muted-foreground mt-2">Welcome back! Please sign in to continue</p>
         </div>
 
-        <Tabs defaultValue="login" className="w-full" onValueChange={() => setError(null)}>
+        <Tabs value={activeTab} onValueChange={(value) => {
+          setActiveTab(value)
+          setError(null)
+          setSuccessMessage(null)
+        }} className="w-full">
           <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="login">Login</TabsTrigger>
             <TabsTrigger value="signup">Sign Up</TabsTrigger>
@@ -98,6 +114,11 @@ export default function AuthPage() {
               </CardHeader>
               <form onSubmit={handleLogin}>
                 <CardContent className="space-y-4">
+                  {successMessage && (
+                    <div className="bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 text-sm p-3 rounded-md border border-emerald-200 dark:border-emerald-500/30">
+                      {successMessage}
+                    </div>
+                  )}
                   {error && (
                     <div className="bg-destructive/10 text-destructive text-sm p-3 rounded-md border border-destructive/20">
                       {error}
@@ -197,6 +218,20 @@ export default function AuthPage() {
                       onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSignupData({ ...signupData, email: e.target.value })}
                       required
                       disabled={isLoading}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="signup-username">Username</Label>
+                    <Input
+                      id="signup-username"
+                      type="text"
+                      placeholder="johndoe"
+                      value={signupData.username}
+                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSignupData({ ...signupData, username: e.target.value })}
+                      required
+                      disabled={isLoading}
+                      minLength={3}
+                      maxLength={50}
                     />
                   </div>
                   <div className="space-y-2">
