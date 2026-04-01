@@ -1,24 +1,31 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import type { Opportunity } from '@/services/opportunities.service'
+import { opportunitiesService, type Opportunity } from '@/services/opportunities.service'
 import { likesService } from '@/services/likes.service'
 import { commentsService, type Comment } from '@/services/comments.service'
 import { bookmarksService } from '@/services/bookmarks.service'
 import { useAuthStore } from '@/store/authStore'
-import { Heart, MessageCircle, Send, Bookmark } from 'lucide-react'
+import { Heart, MessageCircle, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical } from 'lucide-react'
+import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
+import { ConfirmDialog } from './ui/confirm-dialog'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
+  onDelete?: (id: string) => void
 }
 
-export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
+export default function OpportunityCard({ opportunity, onDelete }: OpportunityCardProps) {
   const { user } = useAuthStore()
+  const navigate = useNavigate()
   // Initialize state from opportunity data (from API response)
   const [likesCount, setLikesCount] = useState(opportunity.likes_count)
   const [isLiked, setIsLiked] = useState(opportunity.is_liked)
   const [isBookmarked, setIsBookmarked] = useState(opportunity.is_bookmarked)
+  const [isDeleting, setIsDeleting] = useState(false)
+  const [showCopied, setShowCopied] = useState(false)
   
   const [comments, setComments] = useState<Comment[]>([])
   const [showComments, setShowComments] = useState(false)
@@ -27,6 +34,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   const [isTogglingLike, setIsTogglingLike] = useState(false)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [isTogglingBookmark, setIsTogglingBookmark] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Load comments only when expanded
   useEffect(() => {
@@ -79,6 +87,49 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
       console.error('Failed to toggle bookmark:', error)
     } finally {
       setIsTogglingBookmark(false)
+    }
+  }
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true)
+    try {
+      await opportunitiesService.delete(opportunity.id)
+      if (onDelete) {
+        onDelete(opportunity.id)
+      }
+    } catch (error) {
+      console.error('Failed to delete opportunity:', error)
+      alert('Failed to delete the post. Please try again.')
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
+  const handleShare = async () => {
+    const shareUrl = `${window.location.origin}/opportunity/${opportunity.id}`
+    try {
+      await navigator.clipboard.writeText(shareUrl)
+      setShowCopied(true)
+      setTimeout(() => setShowCopied(false), 2000)
+    } catch (error) {
+      console.error('Failed to copy to clipboard:', error)
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea')
+      textArea.value = shareUrl
+      document.body.appendChild(textArea)
+      textArea.select()
+      try {
+        document.execCommand('copy')
+        setShowCopied(true)
+        setTimeout(() => setShowCopied(false), 2000)
+      } catch (err) {
+        console.error('Fallback copy failed:', err)
+      }
+      document.body.removeChild(textArea)
     }
   }
 
@@ -139,10 +190,6 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
     })
   }
 
-  const getInitials = (userId: string) => {
-    return `U${userId.slice(0, 2).toUpperCase()}`
-  }
-
   const getUsernameInitials = (username?: string) => {
     if (!username) return 'U'
     return username.charAt(0).toUpperCase()
@@ -176,18 +223,19 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
   }
 
   return (
+    <>
     <Card className="w-full hover:shadow-lg transition-shadow duration-200 border border-slate-200 dark:border-slate-800">
       <CardHeader className="pb-3">
         <div className="flex items-start gap-3">
           {/* User Avatar */}
-          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-sm flex-shrink-0">
-            {getInitials(opportunity.user_id)}
+          <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${getAvatarColor(opportunity.username).light} ${getAvatarColor(opportunity.username).dark} flex items-center justify-center ${getAvatarColor(opportunity.username).text} font-semibold text-sm flex-shrink-0`}>
+            {getUsernameInitials(opportunity.username)}
           </div>
           
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1">
               <span className="font-semibold text-sm text-slate-900 dark:text-slate-100">
-                User {opportunity.user_id}
+                {opportunity.username}
               </span>
               <span className="text-slate-400">•</span>
               <span className="text-xs text-slate-500">
@@ -206,6 +254,39 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
               </span>
             </div>
           </div>
+
+          {/* Three-dot menu - only show for owner */}
+          {user && user.username === opportunity.username && (
+            <DropdownMenu
+              trigger={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 h-8 w-8 p-0"
+                  disabled={isDeleting}
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              }
+              align="end"
+            >
+              <DropdownMenuItem
+                onClick={() => navigate(`/edit/${opportunity.id}`)}
+                disabled={isDeleting}
+              >
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit post
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleDeleteClick}
+                disabled={isDeleting}
+                destructive
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete post
+              </DropdownMenuItem>
+            </DropdownMenu>
+          )}
         </div>
       </CardHeader>
       
@@ -213,9 +294,44 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
         <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
           {opportunity.title}
         </h3>
-        <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
-          {opportunity.description}
-        </p>
+        <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+          {opportunity.description.length > 150 ? (
+            <>
+              {opportunity.description.substring(0, 150)}...{' '}
+              <button
+                onClick={() => navigate(`/opportunity/${opportunity.id}`)}
+                className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
+              >
+                View more
+              </button>
+            </>
+          ) : (
+            opportunity.description
+          )}
+        </div>
+        
+        {/* Display Links if available */}
+        {opportunity.link && (
+          <div className="mt-3 space-y-2">
+            {opportunity.link.split(',').map((link, index) => {
+              const trimmedLink = link.trim()
+              if (!trimmedLink) return null
+              
+              return (
+                <a
+                  key={index}
+                  href={trimmedLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 hover:underline group"
+                >
+                  <ExternalLink className="h-4 w-4 flex-shrink-0" />
+                  <span className="truncate">{trimmedLink}</span>
+                </a>
+              )
+            })}
+          </div>
+        )}
       </CardContent>
       
       <div className="border-t border-slate-200 dark:border-slate-800" />
@@ -274,6 +390,21 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
                 className={`h-5 w-5 ${isBookmarked ? 'fill-current' : ''}`}
               />
             </Button>
+            
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleShare}
+              className="hover:bg-emerald-50 dark:hover:bg-emerald-500/10 text-slate-600 dark:text-slate-400 transition-colors relative"
+              title="Share post"
+            >
+              <Share2 className="h-5 w-5" />
+              {showCopied && (
+                <span className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 text-xs px-2 py-1 rounded whitespace-nowrap">
+                  Link copied!
+                </span>
+              )}
+            </Button>
           </div>
         </div>
 
@@ -290,7 +421,7 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
                 <>
                   {Array.isArray(comments) && comments.length > 0 ? (
                     <div className="space-y-3">
-                      {comments.map((comment) => {
+                      {comments.slice(0, 2).map((comment) => {
                         const avatarColor = getAvatarColor(comment.username)
                         return (
                         <div key={comment.id} className="flex gap-2">
@@ -324,6 +455,15 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
                           </div>
                         </div>
                       )})}
+                      
+                      {comments.length > 2 && (
+                        <button
+                          onClick={() => navigate(`/opportunity/${opportunity.id}`)}
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline font-medium w-full text-center py-2"
+                        >
+                          Load more comments ({comments.length - 2} more)
+                        </button>
+                      )}
                     </div>
                   ) : (
                     <p className="text-sm text-slate-500 text-center py-8">
@@ -361,5 +501,18 @@ export default function OpportunityCard({ opportunity }: OpportunityCardProps) {
         )}
       </CardFooter>
     </Card>
+
+    {/* Delete Confirmation Dialog */}
+    <ConfirmDialog
+      isOpen={showDeleteConfirm}
+      onClose={() => setShowDeleteConfirm(false)}
+      onConfirm={handleDeleteConfirm}
+      title="Delete Post?"
+      description="Are you sure you want to delete this post? This action cannot be undone."
+      confirmText="Delete"
+      cancelText="Cancel"
+      variant="danger"
+    />
+    </>
   )
 }

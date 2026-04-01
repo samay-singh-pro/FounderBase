@@ -1,12 +1,24 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom'
 import AuthPage from './components/AuthPage'
 import LandingPage from './components/LandingPage'
+import CreateOpportunityPage from './components/CreateOpportunityPage'
+import OpportunityDetailPage from './components/OpportunityDetailPage'
+import Header from './components/Header'
 import { useAuthStore } from './store/authStore'
 
-function ProtectedRoute({ children }: { children: React.ReactNode }) {
+function ProtectedLayout() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  console.log('ProtectedRoute - isAuthenticated:', isAuthenticated)
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />
+  
+  if (!isAuthenticated) {
+    return <Navigate to="/auth" replace />
+  }
+  
+  return (
+    <>
+      <Header />
+      <Outlet />
+    </>
+  )
 }
 
 function App() {
@@ -14,14 +26,14 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
-        <Route
-          path="/"
-          element={
-            <ProtectedRoute>
-              <LandingPage />
-            </ProtectedRoute>
-          }
-        />
+        
+        <Route element={<ProtectedLayout />}>
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/create" element={<CreateOpportunityPage />} />
+          <Route path="/edit/:id" element={<CreateOpportunityPage />} />
+          <Route path="/opportunity/:id" element={<OpportunityDetailPage />} />
+        </Route>
+        
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
