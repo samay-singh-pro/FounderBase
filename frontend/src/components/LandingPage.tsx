@@ -1,32 +1,40 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { opportunitiesService, type Opportunity, type OpportunityFilters } from '@/services/opportunities.service'
 import OpportunityCard from './OpportunityCard'
 import { CustomSelect } from './ui/custom-select'
-import { RefreshCw, Search, X, Filter } from 'lucide-react'
+import { RefreshCw, Search, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
 
 export default function LandingPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [total, setTotal] = useState(0)
   const [filters, setFilters] = useState<OpportunityFilters>({
     skip: 0,
-    limit: 20,
+    limit: 10,
     category: '',
     type: '',
     search: '',
+    sort_by: 'created_at',
+    sort_order: 'desc',
   })
   const [searchInput, setSearchInput] = useState('')
+  const observerTarget = useRef<HTMLDivElement>(null)
+  const isLoadingMoreRef = useRef(false)
 
+  // Load initial opportunities when filters change (except skip)
   useEffect(() => {
-    loadOpportunities()
-  }, [filters])
+    // Reset and load from beginning when filters change (not skip)
+    loadOpportunities(true)
+  }, [filters.category, filters.type, filters.search, filters.sort_by, filters.sort_order])
 
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => {
-      // Only update if search value actually changed
       if (searchInput !== filters.search) {
         setFilters((prev) => ({ ...prev, search: searchInput, skip: 0 }))
       }
@@ -35,17 +43,87 @@ export default function LandingPage() {
     return () => clearTimeout(timer)
   }, [searchInput, filters.search])
 
-  const loadOpportunities = async () => {
-    setIsLoading(true)
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !isLoading && !isLoadingMoreRef.current) {
+          loadMoreOpportunities()
+        }
+      },
+      { threshold: 0.1 }
+    )
+
+    const currentTarget = observerTarget.current
+    if (currentTarget) {
+      observer.observe(currentTarget)
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget)
+      }
+    }
+  }, [hasMore, isLoading])
+
+  const loadOpportunities = async (reset: boolean = false) => {
+    if (reset) {
+      setIsLoading(true)
+      setOpportunities([])
+      isLoadingMoreRef.current = false // Reset ref on fresh load
+    }
+    
     setError(null)
+    
     try {
-      const response = await opportunitiesService.getAll(filters)
-      setOpportunities(response.opportunities)
+      const currentFilters = reset ? { ...filters, skip: 0 } : filters
+      const response = await opportunitiesService.getAll(currentFilters)
+      
+      if (reset) {
+        setOpportunities(response.opportunities)
+      } else {
+        setOpportunities((prev) => [...prev, ...response.opportunities])
+      }
+      
+      setTotal(response.total)
+      setHasMore(response.opportunities.length === filters.limit)
+      
+      if (reset) {
+        setFilters((prev) => ({ ...prev, skip: response.opportunities.length }))
+      }
     } catch (err: any) {
       console.error('Failed to load opportunities:', err)
       setError('Failed to load opportunities. Please try again.')
     } finally {
       setIsLoading(false)
+      setIsLoadingMore(false)
+    }
+  }
+
+  const loadMoreOpportunities = async () => {
+    // Prevent duplicate calls
+    if (isLoadingMoreRef.current) {
+      return
+    }
+    
+    isLoadingMoreRef.current = true
+    setIsLoadingMore(true)
+    
+    try {
+      const response = await opportunitiesService.getAll({
+        ...filters,
+        skip: opportunities.length,
+      })
+      
+      setOpportunities((prev) => [...prev, ...response.opportunities])
+      setTotal(response.total)
+      setHasMore(response.opportunities.length === filters.limit)
+      setFilters((prev) => ({ ...prev, skip: opportunities.length + response.opportunities.length }))
+    } catch (err: any) {
+      console.error('Failed to load more opportunities:', err)
+    } finally {
+      setIsLoadingMore(false)
+      isLoadingMoreRef.current = false
     }
   }
 
@@ -56,10 +134,12 @@ export default function LandingPage() {
   const handleClearFilters = () => {
     setFilters({
       skip: 0,
-      limit: 20,
+      limit: 10,
       category: '',
       type: '',
       search: '',
+      sort_by: 'created_at',
+      sort_order: 'desc',
     })
     setSearchInput('')
   }
@@ -70,6 +150,7 @@ export default function LandingPage() {
 
   const handleDelete = (opportunityId: string) => {
     setOpportunities((prev) => prev.filter((opp) => opp.id !== opportunityId))
+    setTotal((prev) => prev - 1)
   }
 
   return (
@@ -86,8 +167,8 @@ export default function LandingPage() {
         </div>
 
         {/* Modern Filters Section */}
-        <div className="mb-8">
-          {/* Search Bar - Prominent */}
+        <div className="mb-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+          {/* Search Bar */}
           <div className="relative mb-4">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -97,25 +178,25 @@ export default function LandingPage() {
               placeholder="Search for opportunities, ideas, or problems..."
               value={searchInput}
               onChange={(e) => setSearchInput(e.target.value)}
-              className="pl-12 pr-4 h-12 text-base bg-white dark:bg-slate-900 border-2 border-slate-200 dark:border-slate-800 rounded-2xl focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-all shadow-sm hover:shadow-md"
+              className="pl-12 pr-4 h-12 text-base bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl focus:border-blue-500 dark:focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 dark:focus:ring-blue-400/20 transition-all"
             />
           </div>
 
-          {/* Filter Pills Section */}
+          {/* Filters Row */}
           <div className="flex items-center gap-3 flex-wrap">
-            <div className="flex items-center gap-2 text-sm font-medium text-slate-700 dark:text-slate-300">
-              <div className="flex items-center gap-1.5">
-                <Filter className="h-4 w-4" />
-                <span>Filters</span>
-                {activeFilterCount > 0 && (
-                  <span className="inline-flex items-center justify-center w-5 h-5 text-xs font-bold text-white bg-blue-600 dark:bg-blue-500 rounded-full">
-                    {activeFilterCount}
-                  </span>
-                )}
-              </div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
+              <SlidersHorizontal className="h-4 w-4" />
+              <span>Filter & Sort</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center justify-center min-w-[20px] h-5 px-1.5 text-xs font-bold text-white bg-blue-600 dark:bg-blue-500 rounded-full">
+                  {activeFilterCount}
+                </span>
+              )}
             </div>
 
-            {/* Category Filter Pill */}
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-700"></div>
+
+            {/* Category Filter */}
             <div className="relative">
               <CustomSelect
                 value={filters.category || ''}
@@ -138,7 +219,7 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Type Filter Pill */}
+            {/* Type Filter */}
             <div className="relative">
               <CustomSelect
                 value={filters.type || ''}
@@ -154,50 +235,81 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Active Filter Badges */}
-            {filters.category && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 text-sm font-medium border border-blue-200 dark:border-blue-500/30">
-                <span className="capitalize">{filters.category}</span>
-                <button
-                  onClick={() => handleFilterChange('category', '')}
-                  className="hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded-full p-0.5 transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
+            <div className="h-6 w-px bg-slate-300 dark:bg-slate-700"></div>
 
-            {filters.type && (
-              <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-sm font-medium border border-purple-200 dark:border-purple-500/30">
-                <span className="capitalize">{filters.type}</span>
-                <button
-                  onClick={() => handleFilterChange('type', '')}
-                  className="hover:bg-purple-100 dark:hover:bg-purple-500/20  rounded-full p-0.5 transition-colors"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </button>
-              </div>
-            )}
+            {/* Sort By */}
+            <div className="flex items-center gap-2">
+              <ArrowUpDown className="h-4 w-4 text-slate-500" />
+              <CustomSelect
+                value={filters.sort_by || 'created_at'}
+                onChange={(value) => handleFilterChange('sort_by', value)}
+                options={[
+                  { value: 'created_at', label: 'Latest' },
+                  { value: 'likes_count', label: 'Most Liked' },
+                  { value: 'comments_count', label: 'Most Discussed' },
+                  { value: 'title', label: 'Title (A-Z)' },
+                ]}
+                placeholder="Sort"
+                className="min-w-[150px]"
+              />
+            </div>
 
-            {/* Clear All */}
+            {/* Sort Order Toggle */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => handleFilterChange('sort_order', filters.sort_order === 'asc' ? 'desc' : 'asc')}
+              className="rounded-lg px-3 h-9 border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800"
+              title={filters.sort_order === 'asc' ? 'Ascending' : 'Descending'}
+            >
+              {filters.sort_order === 'asc' ? '↑' : '↓'}
+            </Button>
+
+            {/* Clear Filters - pushed to the right */}
             {hasActiveFilters && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleClearFilters}
-                className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full"
+                className="ml-auto text-red-600 dark:text-red-400 hover:text-red-700 dark:hover:text-red-300 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-medium"
               >
                 <X className="h-4 w-4 mr-1.5" />
                 Clear all
               </Button>
             )}
           </div>
-        </div>
 
-        {/* Subtle Divider */}
-        {!isLoading && opportunities.length > 0 && (
-          <div className="mb-6 border-t border-slate-200 dark:border-slate-800"></div>
-        )}
+          {/* Active Filter Badges */}
+          {(filters.category || filters.type) && (
+            <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
+              <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Active filters:</span>
+              
+              {filters.category && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-blue-50 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 text-sm font-medium border border-blue-200 dark:border-blue-500/30">
+                  <span className="capitalize">{filters.category}</span>
+                  <button
+                    onClick={() => handleFilterChange('category', '')}
+                    className="hover:bg-blue-100 dark:hover:bg-blue-500/20 rounded p-0.5 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+
+              {filters.type && (
+                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-lg bg-purple-50 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 text-sm font-medium border border-purple-200 dark:border-purple-500/30">
+                  <span className="capitalize">{filters.type}</span>
+                  <button
+                    onClick={() => handleFilterChange('type', '')}
+                    className="hover:bg-purple-100 dark:hover:bg-purple-500/20 rounded p-0.5 transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
 
         {error && (
           <div className="bg-rose-50 dark:bg-rose-500/10 text-rose-700 dark:text-rose-400 p-4 rounded-xl border border-rose-200 dark:border-rose-500/30 mb-4">{error}
@@ -208,7 +320,7 @@ export default function LandingPage() {
         {!isLoading && opportunities.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-600 dark:text-slate-400">
-              Found <span className="font-semibold text-slate-900 dark:text-slate-100">{opportunities.length}</span> {opportunities.length === 1 ? 'opportunity' : 'opportunities'}
+              Showing <span className="font-semibold text-slate-900 dark:text-slate-100">{opportunities.length}</span> of <span className="font-semibold text-slate-900 dark:text-slate-100">{total}</span> {total === 1 ? 'opportunity' : 'opportunities'}
               {hasActiveFilters && ' matching your filters'}
             </p>
           </div>
@@ -244,15 +356,41 @@ export default function LandingPage() {
             )}
           </div>
         ) : (
-          <div className="space-y-4">
-            {opportunities.map((opportunity) => (
-              <OpportunityCard 
-                key={opportunity.id} 
-                opportunity={opportunity} 
-                onDelete={handleDelete}
-              />
-            ))}
-          </div>
+          <>
+            <div className="space-y-4">
+              {opportunities.map((opportunity) => (
+                <OpportunityCard 
+                  key={opportunity.id} 
+                  opportunity={opportunity} 
+                  onDelete={handleDelete}
+                />
+              ))}
+            </div>
+
+            {/* Infinite Scroll Observer Target */}
+            {hasMore && (
+              <div ref={observerTarget} className="py-8 flex justify-center">
+                {isLoadingMore && (
+                  <div className="flex flex-col items-center gap-2">
+                    <RefreshCw className="h-6 w-6 animate-spin text-blue-500 dark:text-blue-400" />
+                    <p className="text-sm text-slate-500 dark:text-slate-400">Loading more...</p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* End of Results */}
+            {!hasMore && opportunities.length > 0 && (
+              <div className="py-8 text-center">
+                <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm">
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span>You've reached the end</span>
+                </div>
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>

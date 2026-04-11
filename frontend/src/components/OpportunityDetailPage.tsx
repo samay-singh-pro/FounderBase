@@ -8,7 +8,7 @@ import { likesService } from '@/services/likes.service'
 import { commentsService, type Comment } from '@/services/comments.service'
 import { bookmarksService } from '@/services/bookmarks.service'
 import { useAuthStore } from '@/store/authStore'
-import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical } from 'lucide-react'
+import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2 } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
 import { ConfirmDialog } from './ui/confirm-dialog'
 
@@ -77,13 +77,25 @@ export default function OpportunityDetailPage() {
 
   const handleToggleLike = async () => {
     if (!opportunity) return
+    
+    // Optimistic update - update UI immediately
+    const previousLiked = isLiked
+    const previousCount = likesCount
+    
+    setIsLiked(!isLiked)
+    setLikesCount(isLiked ? likesCount - 1 : likesCount + 1)
     setIsTogglingLike(true)
+    
     try {
-      const response = await likesService.toggleLike(opportunity.id, isLiked)
+      const response = await likesService.toggleLike(opportunity.id, previousLiked)
+      // Update with actual server response
       setIsLiked(response.liked)
       setLikesCount(response.total_likes)
     } catch (error) {
       console.error('Failed to toggle like:', error)
+      // Revert optimistic update on error
+      setIsLiked(previousLiked)
+      setLikesCount(previousCount)
     } finally {
       setIsTogglingLike(false)
     }
@@ -91,17 +103,22 @@ export default function OpportunityDetailPage() {
 
   const handleToggleBookmark = async () => {
     if (!opportunity) return
+    
+    // Optimistic update - update UI immediately
+    const previousBookmarked = isBookmarked
+    setIsBookmarked(!isBookmarked)
     setIsTogglingBookmark(true)
+    
     try {
-      if (isBookmarked) {
+      if (previousBookmarked) {
         await bookmarksService.removeBookmark(opportunity.id)
-        setIsBookmarked(false)
       } else {
-        const response = await bookmarksService.toggleBookmark(opportunity.id)
-        setIsBookmarked(response.bookmarked)
+        await bookmarksService.toggleBookmark(opportunity.id)
       }
     } catch (error) {
       console.error('Failed to toggle bookmark:', error)
+      // Revert optimistic update on error
+      setIsBookmarked(previousBookmarked)
     } finally {
       setIsTogglingBookmark(false)
     }
@@ -220,7 +237,7 @@ export default function OpportunityDetailPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
-        <p className="text-slate-600 dark:text-slate-400">Loading post...</p>
+        <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
       </div>
     )
   }

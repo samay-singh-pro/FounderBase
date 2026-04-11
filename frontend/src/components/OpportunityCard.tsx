@@ -60,31 +60,45 @@ export default function OpportunityCard({ opportunity, onDelete }: OpportunityCa
   }
 
   const handleToggleLike = async () => {
+    // Optimistic update - update UI immediately
+    const previousLiked = isLiked
+    const previousCount = likesCount
+    
+    setIsLiked(!isLiked)
+    setLikesCount(isLiked ? likesCount - 1 : likesCount + 1)
     setIsTogglingLike(true)
+    
     try {
-      const response = await likesService.toggleLike(opportunity.id, isLiked)
-      // Update local state based on response
+      const response = await likesService.toggleLike(opportunity.id, previousLiked)
+      // Update with actual server response
       setIsLiked(response.liked)
       setLikesCount(response.total_likes)
     } catch (error) {
       console.error('Failed to toggle like:', error)
+      // Revert optimistic update on error
+      setIsLiked(previousLiked)
+      setLikesCount(previousCount)
     } finally {
       setIsTogglingLike(false)
     }
   }
 
   const handleToggleBookmark = async () => {
+    // Optimistic update - update UI immediately
+    const previousBookmarked = isBookmarked
+    setIsBookmarked(!isBookmarked)
     setIsTogglingBookmark(true)
+    
     try {
-      if (isBookmarked) {
+      if (previousBookmarked) {
         await bookmarksService.removeBookmark(opportunity.id)
-        setIsBookmarked(false)
       } else {
-        const response = await bookmarksService.toggleBookmark(opportunity.id)
-        setIsBookmarked(response.bookmarked)
+        await bookmarksService.toggleBookmark(opportunity.id)
       }
     } catch (error) {
       console.error('Failed to toggle bookmark:', error)
+      // Revert optimistic update on error
+      setIsBookmarked(previousBookmarked)
     } finally {
       setIsTogglingBookmark(false)
     }
@@ -291,7 +305,10 @@ export default function OpportunityCard({ opportunity, onDelete }: OpportunityCa
       </CardHeader>
       
       <CardContent className="pt-0 pb-3">
-        <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2">
+        <h3 
+          onClick={() => navigate(`/opportunity/${opportunity.id}`)}
+          className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-2 cursor-pointer hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+        >
           {opportunity.title}
         </h3>
         <div className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
@@ -302,11 +319,21 @@ export default function OpportunityCard({ opportunity, onDelete }: OpportunityCa
                 onClick={() => navigate(`/opportunity/${opportunity.id}`)}
                 className="text-blue-600 dark:text-blue-400 hover:underline font-medium"
               >
-                View more
+                Read more
               </button>
             </>
           ) : (
-            opportunity.description
+            <>
+              {opportunity.description}
+              <div className="mt-2">
+                <button
+                  onClick={() => navigate(`/opportunity/${opportunity.id}`)}
+                  className="text-blue-600 dark:text-blue-400 hover:underline font-medium text-sm"
+                >
+                  View details →
+                </button>
+              </div>
+            </>
           )}
         </div>
         
