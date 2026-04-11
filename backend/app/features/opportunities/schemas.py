@@ -14,6 +14,8 @@ class SortField(str, Enum):
     category = "category"
     type = "type"
     status = "status"
+    likes_count = "likes_count"
+    comments_count = "comments_count"
 
 
 class SortOrder(str, Enum):

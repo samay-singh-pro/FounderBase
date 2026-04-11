@@ -416,7 +416,14 @@ def get_opportunities(
     total = query.count()
     
     # Apply sorting
-    sort_column = getattr(Opportunity, sort_by, Opportunity.created_at)
+    # Handle computed fields (likes_count, comments_count) and regular model fields
+    if sort_by == "likes_count":
+        sort_column = func.coalesce(likes_count_subq.c.likes_count, 0)
+    elif sort_by == "comments_count":
+        sort_column = func.coalesce(comments_count_subq.c.comments_count, 0)
+    else:
+        sort_column = getattr(Opportunity, sort_by, Opportunity.created_at)
+    
     if sort_order == "asc":
         query = query.order_by(sort_column.asc())
     else:

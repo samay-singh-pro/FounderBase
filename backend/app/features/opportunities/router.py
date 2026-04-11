@@ -205,7 +205,7 @@ def list_opportunities(
     - **search**: Search text in title and description (minimum 2 characters)
     
     **Sorting:**
-    - **sort_by**: Field to sort by (created_at, title, category, type, status)
+    - **sort_by**: Field to sort by (created_at, title, category, type, status, likes_count, comments_count)
     - **sort_order**: Sort direction (asc, desc)
     
     **Engagement Metrics:**
