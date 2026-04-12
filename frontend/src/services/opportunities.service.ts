@@ -15,6 +15,7 @@ export interface Opportunity {
   comments_count: number
   is_liked: boolean
   is_bookmarked: boolean
+  is_following: boolean
 }
 
 export interface OpportunitiesResponse {

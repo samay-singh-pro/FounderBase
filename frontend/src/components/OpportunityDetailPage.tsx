@@ -3,12 +3,15 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
 import { opportunitiesService, type Opportunity } from '@/services/opportunities.service'
 import { likesService } from '@/services/likes.service'
 import { commentsService, type Comment } from '@/services/comments.service'
 import { bookmarksService } from '@/services/bookmarks.service'
+import { followsService } from '@/services/follows.service'
 import { useAuthStore } from '@/store/authStore'
-import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2 } from 'lucide-react'
+import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2, MessageSquare, UserPlus, UserCheck } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
 import { ConfirmDialog } from './ui/confirm-dialog'
 
@@ -36,6 +39,15 @@ export default function OpportunityDetailPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [showDeleteCommentConfirm, setShowDeleteCommentConfirm] = useState(false)
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
+  const [showMessageDialog, setShowMessageDialog] = useState(false)
+  const [connectionMessage, setConnectionMessage] = useState('')
+  const [isSendingRequest, setIsSendingRequest] = useState(false)
+  const [isFollowing, setIsFollowing] = useState(false)
+
+  // Scroll to top when page loads
+  useEffect(() => {
+    window.scrollTo(0, 0)
+  }, [id])
 
   useEffect(() => {
     if (id) {
@@ -53,6 +65,7 @@ export default function OpportunityDetailPage() {
       setLikesCount(data.likes_count)
       setIsLiked(data.is_liked)
       setIsBookmarked(data.is_bookmarked)
+      setIsFollowing(data.is_following)
     } catch (err) {
       console.error('Failed to load opportunity:', err)
       setError('Failed to load post. Please try again.')
@@ -189,6 +202,38 @@ export default function OpportunityDetailPage() {
     }
   }
 
+  const handleFollow = async () => {
+    if (!opportunity) return
+    
+    // Optimistic update
+    setIsFollowing(true)
+    
+    try {
+      await followsService.followUser(parseInt(opportunity.user_id))
+    } catch (error) {
+      console.error('Failed to follow user:', error)
+      // Rollback on error
+      setIsFollowing(false)
+      alert('Failed to follow user. Please try again.')
+    }
+  }
+
+  const handleUnfollow = async () => {
+    if (!opportunity) return
+    
+    // Optimistic update
+    setIsFollowing(false)
+    
+    try {
+      await followsService.unfollowUser(parseInt(opportunity.user_id))
+    } catch (error) {
+      console.error('Failed to unfollow user:', error)
+      // Rollback on error
+      setIsFollowing(true)
+      alert('Failed to unfollow user. Please try again.')
+    }
+  }
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
     const now = new Date()
@@ -288,7 +333,62 @@ export default function OpportunityDetailPage() {
                 </div>
               </div>
 
-              {/* Three-dot menu - only show for owner */}
+              {/* Follow button or action menu */}
+              {user && user.username !== opportunity.username && (
+                <div className="flex items-center gap-2">
+                  {!isFollowing ? (
+                    <Button
+                      size="sm"
+                      onClick={handleFollow}
+                      className="rounded-full bg-blue-600 hover:bg-blue-700 text-white px-4 h-8 text-sm font-medium"
+                    >
+                      <UserPlus className="h-3.5 w-3.5 mr-1.5" />
+                      Follow
+                    </Button>
+                  ) : (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-blue-600 dark:text-blue-400 h-8 w-8 p-0"
+                        title="Following"
+                      >
+                        <UserCheck className="h-4 w-4" />
+                      </Button>
+                      <DropdownMenu
+                        trigger={
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 h-8 w-8 p-0"
+                          >
+                            <MoreVertical className="h-4 w-4" />
+                          </Button>
+                        }
+                        align="end"
+                      >
+                        <DropdownMenuItem
+                          onClick={() => setShowMessageDialog(true)}
+                          className="whitespace-nowrap"
+                        >
+                          <MessageSquare className="h-4 w-4 mr-2" />
+                          Send message
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={handleUnfollow}
+                          destructive
+                          className="whitespace-nowrap"
+                        >
+                          <UserCheck className="h-4 w-4 mr-2" />
+                          Unfollow
+                        </DropdownMenuItem>
+                      </DropdownMenu>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Three-dot menu for owner */}
               {user && user.username === opportunity.username && (
                 <DropdownMenu
                   trigger={
@@ -306,6 +406,7 @@ export default function OpportunityDetailPage() {
                   <DropdownMenuItem
                     onClick={() => navigate(`/edit/${opportunity.id}`)}
                     disabled={isDeleting}
+                    className="whitespace-nowrap"
                   >
                     <Edit2 className="h-4 w-4 mr-2" />
                     Edit post
@@ -314,6 +415,7 @@ export default function OpportunityDetailPage() {
                     onClick={handleDeleteClick}
                     disabled={isDeleting}
                     destructive
+                    className="whitespace-nowrap"
                   >
                     <Trash2 className="h-4 w-4 mr-2" />
                     Delete post
@@ -546,6 +648,101 @@ export default function OpportunityDetailPage() {
         cancelText="Cancel"
         variant="danger"
       />
-    </div>
+      {/* Send Message / Connection Request Dialog */}
+      {showMessageDialog && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70"
+          onClick={() => setShowMessageDialog(false)}
+        >
+          <div 
+            className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-md w-full p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between mb-4">
+              <div>
+                <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
+                  Send Connection Request
+                </h3>
+                <p className="text-sm text-slate-600 dark:text-slate-400">
+                  Send a message to {opportunity?.username} to start a conversation
+                </p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="connection-message" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
+                  Introduce yourself
+                </Label>
+                <Textarea
+                  id="connection-message"
+                  placeholder="Hi! I'm interested in discussing this opportunity with you..."
+                  value={connectionMessage}
+                  onChange={(e) => {
+                    if (e.target.value.length <= 200) {
+                      setConnectionMessage(e.target.value)
+                    }
+                  }}
+                  rows={4}
+                  className="bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-700 text-slate-900 dark:text-slate-100 placeholder:text-slate-400 dark:placeholder:text-slate-500 resize-none"
+                  disabled={isSendingRequest}
+                />
+                <div className="flex items-center justify-between mt-1">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    This message will be sent with your connection request
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {connectionMessage.length}/200
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setShowMessageDialog(false)
+                    setConnectionMessage('')
+                  }}
+                  disabled={isSendingRequest}
+                  className="flex-1 rounded-full border-slate-300 dark:border-slate-700"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  onClick={async () => {
+                    if (!connectionMessage.trim()) {
+                      alert('Please write a message')
+                      return
+                    }
+                    setIsSendingRequest(true)
+                    // TODO: Backend implementation
+                    setTimeout(() => {
+                      setIsSendingRequest(false)
+                      setShowMessageDialog(false)
+                      setConnectionMessage('')
+                      alert('Connection request sent! (Frontend only - backend not implemented yet)')
+                    }, 1000)
+                  }}
+                  disabled={isSendingRequest || !connectionMessage.trim()}
+                  className="flex-1 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+                >
+                  {isSendingRequest ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Sending...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="h-4 w-4 mr-2" />
+                      Send Request
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}    </div>
   )
 }

@@ -64,9 +64,10 @@ interface DropdownMenuItemProps {
   onClick?: () => void
   destructive?: boolean
   disabled?: boolean
+  className?: string
 }
 
-export function DropdownMenuItem({ children, onClick, destructive, disabled }: DropdownMenuItemProps) {
+export function DropdownMenuItem({ children, onClick, destructive, disabled, className }: DropdownMenuItemProps) {
   const { closeMenu } = React.useContext(DropdownMenuContext)
   
   const handleClick = () => {
@@ -86,7 +87,8 @@ export function DropdownMenuItem({ children, onClick, destructive, disabled }: D
         'hover:bg-slate-100 dark:hover:bg-slate-800',
         'w-full text-left',
         destructive && 'text-red-600 dark:text-red-400 focus:bg-red-50 dark:focus:bg-red-500/10 hover:bg-red-50 dark:hover:bg-red-500/10',
-        disabled && 'pointer-events-none opacity-50'
+        disabled && 'pointer-events-none opacity-50',
+        className
       )}
     >
       {children}

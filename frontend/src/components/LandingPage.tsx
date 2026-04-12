@@ -144,6 +144,15 @@ export default function LandingPage() {
     setSearchInput('')
   }
 
+  const handleFollowChange = (userId: string, isFollowing: boolean) => {
+    // Update all opportunities from this user
+    setOpportunities((prev) =>
+      prev.map((opp) =>
+        opp.user_id === userId ? { ...opp, is_following: isFollowing } : opp
+      )
+    )
+  }
+
   const hasActiveFilters = filters.category || filters.type || filters.search
 
   const activeFilterCount = [filters.category, filters.type, filters.search].filter(Boolean).length
@@ -363,6 +372,7 @@ export default function LandingPage() {
                   key={opportunity.id} 
                   opportunity={opportunity} 
                   onDelete={handleDelete}
+                  onFollowChange={handleFollowChange}
                 />
               ))}
             </div>
