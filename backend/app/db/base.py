@@ -7,7 +7,8 @@ from app.db.connection import Base
 from app.features.auth.models import User
 from app.features.bookmarks.models import OpportunityBookmark
 from app.features.comments.models import Comment
+from app.features.follows.models import Follow
 from app.features.likes.models import OpportunityLike
 from app.features.opportunities.models import Opportunity
 
-__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark"]
+__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark", "Follow"]

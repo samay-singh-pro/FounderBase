@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 from app.features.comments.models import Comment
 from app.features.likes.models import OpportunityLike
 from app.features.bookmarks.models import OpportunityBookmark
+from app.features.follows.models import Follow
 from app.features.opportunities.models import Opportunity
 from app.features.opportunities.schemas import OpportunityCreate, OpportunityUpdate
 from app.features.auth.models import User
@@ -190,6 +191,16 @@ def get_opportunity_by_id(
             .subquery()
         )
     
+    # Get list of users that current user is following (efficient approach)
+    following_user_ids = set()
+    if current_user_id:
+        following_ids = (
+            db.query(Follow.followee_id)
+            .filter(Follow.follower_id == int(current_user_id))
+            .all()
+        )
+        following_user_ids = {str(user_id[0]) for user_id in following_ids}
+    
     # Main query
     query = db.query(
         Opportunity,
@@ -242,6 +253,9 @@ def get_opportunity_by_id(
     opp = result[0]  # Opportunity object
     username = result[1]  # Username from join
     
+    # Check if following using pre-fetched set (O(1) lookup)
+    is_following = str(opp.user_id) in following_user_ids
+    
     return {
         'id': opp.id,
         'title': opp.title,
@@ -257,6 +271,7 @@ def get_opportunity_by_id(
         'comments_count': result[3],  # comments_count
         'is_liked': result[4],  # is_liked
         'is_bookmarked': result[5],  # is_bookmarked
+        'is_following': is_following,  # Checked from pre-fetched set
     }
 
 
@@ -341,6 +356,17 @@ def get_opportunities(
             .group_by(OpportunityBookmark.opportunity_id)
             .subquery()
         )
+    
+    # Get list of users that current user is following (efficient approach)
+    # Instead of complex joins, we fetch once and check membership in Python
+    following_user_ids = set()
+    if current_user_id:
+        following_ids = (
+            db.query(Follow.followee_id)
+            .filter(Follow.follower_id == int(current_user_id))
+            .all()
+        )
+        following_user_ids = {str(user_id[0]) for user_id in following_ids}
     
     # Main query with left joins
     query = db.query(
@@ -437,6 +463,10 @@ def get_opportunities(
     for row in results:
         opp = row[0]  # Opportunity object
         username = row[1]  # Username from join
+        
+        # Check if following using pre-fetched set (O(1) lookup)
+        is_following = str(opp.user_id) in following_user_ids
+        
         opportunities.append({
             'id': opp.id,
             'title': opp.title,
@@ -448,52 +478,12 @@ def get_opportunities(
             'username': username,
             'created_at': opp.created_at,
             'status': opp.status,
-            'likes_count': row[2],  # likes_count (now at index 2)
-            'comments_count': row[3],  # comments_count (now at index 3)
-            'is_liked': row[4],  # is_liked (now at index 4)
-            'is_bookmarked': row[5],  # is_bookmarked (now at index 5)
+            'likes_count': row[2],  # likes_count
+            'comments_count': row[3],  # comments_count
+            'is_liked': row[4],  # is_liked
+            'is_bookmarked': row[5],  # is_bookmarked
+            'is_following': is_following,  # Checked from pre-fetched set
         })
-    
-    return opportunities, total
-    
-    # Apply filters
-    if user_id:
-        query = query.filter(Opportunity.user_id == user_id)
-    if category:
-        query = query.filter(Opportunity.category == category)
-    if type_filter:
-        query = query.filter(Opportunity.type == type_filter)
-    if status:
-        query = query.filter(Opportunity.status == status)
-    
-    # Search in title and description
-    if search:
-        search_term = f"%{search}%"
-        query = query.filter(
-            or_(
-                Opportunity.title.ilike(search_term),
-                Opportunity.description.ilike(search_term)
-            )
-        )
-    
-    # Date range filters
-    if created_after:
-        query = query.filter(Opportunity.created_at >= created_after)
-    if created_before:
-        query = query.filter(Opportunity.created_at <= created_before)
-    
-    # Get total count before pagination
-    total = query.count()
-    
-    # Apply sorting
-    sort_column = getattr(Opportunity, sort_by, Opportunity.created_at)
-    if sort_order == "asc":
-        query = query.order_by(sort_column.asc())
-    else:
-        query = query.order_by(sort_column.desc())
-    
-    # Apply pagination
-    opportunities = query.offset(skip).limit(limit).all()
     
     return opportunities, total
 

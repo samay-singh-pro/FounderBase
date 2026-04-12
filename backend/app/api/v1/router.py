@@ -10,6 +10,7 @@ from app.features.auth.router import router as auth_router
 from app.features.bookmarks.router import router as bookmarks_router
 from app.features.comments.router import router as comments_router
 from app.features.drafts.router import router as drafts_router
+from app.features.follows.router import router as follows_router
 from app.features.likes.router import router as likes_router
 from app.features.opportunities.router import router as opportunities_router
 
@@ -23,4 +24,5 @@ api_router.include_router(drafts_router)
 api_router.include_router(comments_router)
 api_router.include_router(likes_router)
 api_router.include_router(bookmarks_router)
+api_router.include_router(follows_router)
 

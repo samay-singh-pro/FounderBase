@@ -122,6 +122,7 @@ class OpportunityPublic(BaseModel):
     comments_count: int = Field(default=0, description="Total number of comments")
     is_liked: bool = Field(default=False, description="Whether current user has liked this opportunity")
     is_bookmarked: bool = Field(default=False, description="Whether current user has bookmarked this opportunity")
+    is_following: bool = Field(default=False, description="Whether current user is following the opportunity author")
     
     @field_serializer('created_at')
     def serialize_datetime(self, dt: datetime, _info: Any) -> str:
