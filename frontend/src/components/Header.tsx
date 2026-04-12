@@ -1,7 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from './ui/button'
 import { useAuthStore } from '@/store/authStore'
-import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft } from 'lucide-react'
+import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 
 interface HeaderProps {
@@ -53,6 +53,18 @@ export default function Header({ onRefresh, isRefreshing = false, showBackButton
           >
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Create</span>
+          </Button>
+          
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => navigate('/messages')}
+            className="rounded-full hover:bg-blue-50 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400 relative"
+            title="Messages"
+          >
+            <MessageSquare className="h-4 w-4" />
+            {/* Badge for unread messages - will connect to state later */}
+            {/* <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">3</span> */}
           </Button>
           
           {showBackButton && (
