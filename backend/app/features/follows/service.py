@@ -8,7 +8,7 @@ from app.features.follows.models import Follow
 from app.features.auth.models import User
 
 
-def follow_user(db: Session, follower_id: int, followee_id: int) -> bool:
+def follow_user(db: Session, follower_id: str, followee_id: str) -> bool:
     """
     Follow a user.
     
@@ -53,7 +53,7 @@ def follow_user(db: Session, follower_id: int, followee_id: int) -> bool:
         return False
 
 
-def unfollow_user(db: Session, follower_id: int, followee_id: int) -> bool:
+def unfollow_user(db: Session, follower_id: str, followee_id: str) -> bool:
     """
     Unfollow a user.
     
@@ -82,7 +82,7 @@ def unfollow_user(db: Session, follower_id: int, followee_id: int) -> bool:
     return True
 
 
-def is_following(db: Session, follower_id: int, followee_id: int) -> bool:
+def is_following(db: Session, follower_id: str, followee_id: str) -> bool:
     """
     Check if a user is following another user.
     
@@ -108,7 +108,7 @@ def is_following(db: Session, follower_id: int, followee_id: int) -> bool:
 
 def get_followers(
     db: Session,
-    user_id: int,
+    user_id: str,
     page: int = 1,
     limit: int = 20
 ) -> tuple[list[dict], int]:
@@ -165,7 +165,7 @@ def get_followers(
 
 def get_following(
     db: Session,
-    user_id: int,
+    user_id: str,
     page: int = 1,
     limit: int = 20
 ) -> tuple[list[dict], int]:

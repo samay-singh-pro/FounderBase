@@ -13,6 +13,7 @@ from app.features.drafts.router import router as drafts_router
 from app.features.follows.router import router as follows_router
 from app.features.likes.router import router as likes_router
 from app.features.opportunities.router import router as opportunities_router
+from app.features.messages.router import router as messages_router
 
 # Create API v1 router
 api_router = APIRouter(prefix="/api/v1")
@@ -25,4 +26,5 @@ api_router.include_router(comments_router)
 api_router.include_router(likes_router)
 api_router.include_router(bookmarks_router)
 api_router.include_router(follows_router)
+api_router.include_router(messages_router)
 

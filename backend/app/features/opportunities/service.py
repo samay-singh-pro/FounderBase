@@ -196,7 +196,7 @@ def get_opportunity_by_id(
     if current_user_id:
         following_ids = (
             db.query(Follow.followee_id)
-            .filter(Follow.follower_id == int(current_user_id))
+            .filter(Follow.follower_id == current_user_id)
             .all()
         )
         following_user_ids = {str(user_id[0]) for user_id in following_ids}
@@ -363,7 +363,7 @@ def get_opportunities(
     if current_user_id:
         following_ids = (
             db.query(Follow.followee_id)
-            .filter(Follow.follower_id == int(current_user_id))
+            .filter(Follow.follower_id == current_user_id)
             .all()
         )
         following_user_ids = {str(user_id[0]) for user_id in following_ids}

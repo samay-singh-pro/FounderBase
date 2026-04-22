@@ -35,7 +35,7 @@ class UserPublic(BaseModel):
     
     model_config = {"from_attributes": True}
     
-    id: int
+    id: str
     email: EmailStr
     username: str
 

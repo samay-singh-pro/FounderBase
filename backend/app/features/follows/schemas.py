@@ -13,7 +13,7 @@ class FollowerPublic(BaseModel):
     """Public schema for a follower with user details"""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: str
     username: str
     email: str
     followed_at: datetime
@@ -23,7 +23,7 @@ class FollowingPublic(BaseModel):
     """Public schema for a following user with user details"""
     model_config = ConfigDict(from_attributes=True)
     
-    id: int
+    id: str
     username: str
     email: str
     followed_at: datetime

@@ -52,9 +52,9 @@ class Follow(Base):
         default=lambda: str(uuid.uuid4())
     )
     
-    # Foreign keys to users table
-    follower_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
-    followee_id: Mapped[int] = mapped_column(Integer, nullable=False, index=True)
+    # Foreign keys to users table (UUIDs)
+    follower_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    followee_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(

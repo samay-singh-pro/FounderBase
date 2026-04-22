@@ -26,7 +26,7 @@ router = APIRouter(tags=["Follows"])
     description="Current user follows the specified user (authentication required)"
 )
 def follow_user(
-    user_id: int,
+    user_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -77,7 +77,7 @@ def follow_user(
     description="Current user unfollows the specified user (authentication required)"
 )
 def unfollow_user(
-    user_id: int,
+    user_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -119,7 +119,7 @@ def unfollow_user(
     description="Get paginated list of users following the specified user"
 )
 def get_followers(
-    user_id: int,
+    user_id: str,
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     db: Session = Depends(get_db),
@@ -163,7 +163,7 @@ def get_followers(
     description="Get paginated list of users that the specified user is following"
 )
 def get_following(
-    user_id: int,
+    user_id: str,
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
     db: Session = Depends(get_db),
@@ -207,7 +207,7 @@ def get_following(
     description="Check follow status between current user and specified user (authentication required)"
 )
 def get_follow_status(
-    user_id: int,
+    user_id: str,
     current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> FollowStatusResponse:

@@ -21,6 +21,7 @@ from app.api.v1 import api_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.connection import engine
+from app.features.messages.websocket_router import router as websocket_router
 
 
 @asynccontextmanager
@@ -62,6 +63,9 @@ app.add_middleware(
 
 # Include API v1 router
 app.include_router(api_router)
+
+# Include WebSocket router
+app.include_router(websocket_router, prefix="/api/v1/messages", tags=["WebSocket"])
 
 
 @app.get("/", tags=["Root"])
