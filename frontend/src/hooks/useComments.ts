@@ -24,8 +24,7 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
       const fetchedComments = await commentsService.getComments(opportunityId)
       const commentsArray = Array.isArray(fetchedComments) ? fetchedComments : []
       setComments(commentsArray)
-    } catch (error) {
-      console.error('Failed to load comments:', error)
+    } catch {
       setComments([])
     } finally {
       setIsLoadingComments(false)
@@ -43,8 +42,8 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
       })
       setComments([...comments, comment])
       setNewComment('')
-    } catch (error) {
-      console.error('Failed to create comment:', error)
+    } catch {
+      alert('Failed to post comment. Please try again.')
     } finally {
       setIsSubmittingComment(false)
     }
@@ -54,8 +53,8 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
     try {
       await commentsService.deleteComment(commentId)
       setComments(comments.filter((c) => c.id !== commentId))
-    } catch (error) {
-      console.error('Failed to delete comment:', error)
+    } catch {
+      alert('Failed to delete comment. Please try again.')
     }
   }
 

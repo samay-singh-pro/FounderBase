@@ -54,8 +54,7 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
     try {
       await opportunitiesService.delete(opportunity.id)
       onDelete?.(opportunity.id)
-    } catch (error) {
-      console.error('Failed to delete opportunity:', error)
+    } catch {
       alert('Failed to delete the post. Please try again.')
     } finally {
       setIsDeleting(false)
@@ -68,9 +67,7 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
       await navigator.clipboard.writeText(shareUrl)
       setShowCopied(true)
       setTimeout(() => setShowCopied(false), 2000)
-    } catch (error) {
-      console.error('Failed to copy to clipboard:', error)
-      // Fallback for older browsers
+    } catch {
       const textArea = document.createElement('textarea')
       textArea.value = shareUrl
       document.body.appendChild(textArea)
@@ -79,16 +76,14 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
         document.execCommand('copy')
         setShowCopied(true)
         setTimeout(() => setShowCopied(false), 2000)
-      } catch (err) {
-        console.error('Fallback copy failed:', err)
+      } catch {
+        // Silent fail
       }
       document.body.removeChild(textArea)
     }
   }
 
   const handleSendMessage = async () => {
-    // Optimistic navigation - go to messages immediately
-    // The messages page will handle checking conversation status
     navigate(`/messages?userId=${opportunity.user_id}&username=${opportunity.username}`)
   }
 

@@ -44,7 +44,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
       await onSelectUser(preselectedUser.userId, preselectedUser.username, message.trim())
       setMessage('')
     } catch {
-      // Error handled in parent
     } finally {
       setIsSending(false)
     }
@@ -57,7 +56,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
     }
   }
 
-  // Preselected user — send message request with message field
   if (preselectedUser) {
     const avatarColor = getAvatarColor(preselectedUser.username)
 
@@ -70,7 +68,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
           className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-md w-full"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
             <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
               Send Message Request
@@ -85,7 +82,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
             </Button>
           </div>
 
-          {/* User Info + Message */}
           <div className="p-6">
             <div className="flex flex-col items-center text-center mb-5">
               <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-xl mb-3`}>
@@ -157,7 +153,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
     )
   }
 
-  // Normal follower selection flow
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70"
@@ -182,7 +177,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
           </Button>
         </div>
 
-        {/* Search */}
         <div className="p-4 border-b border-slate-200 dark:border-slate-800">
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
@@ -197,7 +191,6 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
           </div>
         </div>
 
-        {/* Followers List */}
         <div className="flex-1 overflow-y-auto">
           {filteredFollowers.length > 0 ? (
             filteredFollowers.map((follower) => {

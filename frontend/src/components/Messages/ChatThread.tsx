@@ -32,7 +32,6 @@ interface ChatThreadProps {
   isLoadingMessages?: boolean
 }
 
-// Format relative time for "last seen"
 function formatLastSeen(lastSeen?: string): string {
   if (!lastSeen) return 'Offline'
   
@@ -69,28 +68,17 @@ export function ChatThread({
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const avatarColor = getAvatarColor(username)
 
-  // Determine if current user created this conversation (sent the request)
   const isRequester = createdById === currentUserId
   const isPending = status === 'pending'
-  
-  // Get active status text
   const activeStatus = isOnline ? 'Active now' : formatLastSeen(lastSeen)
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('ChatThread lastSeen:', lastSeen, 'isOnline:', isOnline, 'activeStatus:', activeStatus)
-  }, [lastSeen, isOnline, activeStatus])
-  
   const isRecipient = isPending && !isRequester
 
-  // Auto-scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900">
-      {/* Header */}
       <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
         <div className="flex items-center gap-3">
           {showBackButton && (
@@ -141,7 +129,6 @@ export function ChatThread({
         </DropdownMenu>
       </div>
 
-      {/* Pending Notice or Accept/Decline */}
       {isPending && isRequester && (
         <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b border-yellow-200 dark:border-yellow-800 px-4 py-3">
           <p className="text-sm text-yellow-800 dark:text-yellow-300 text-center">
@@ -177,7 +164,6 @@ export function ChatThread({
         </div>
       )}
 
-      {/* Messages Area */}
       <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
@@ -205,12 +191,10 @@ export function ChatThread({
         )}
       </div>
 
-      {/* Message Input - Conditional based on conversation status */}
       {!isRecipient && !(isPending && isRequester && messages.length > 0) && (
         <MessageInput onSendMessage={onSendMessage} />
       )}
       
-      {/* If sender has already sent initial message in pending request */}
       {isPending && isRequester && messages.length > 0 && (
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <p className="text-center text-sm text-slate-500 dark:text-slate-400">
@@ -219,7 +203,6 @@ export function ChatThread({
         </div>
       )}
       
-      {/* If recipient of pending request, show accept message */}
       {isRecipient && (
         <div className="p-4 border-t border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <p className="text-center text-sm text-slate-500 dark:text-slate-400">

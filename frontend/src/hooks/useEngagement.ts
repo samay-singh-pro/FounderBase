@@ -22,7 +22,6 @@ export function useEngagement({
   const [isTogglingBookmark, setIsTogglingBookmark] = useState(false)
 
   const toggleLike = async () => {
-    // Optimistic update
     const previousLiked = isLiked
     const previousCount = likesCount
     
@@ -34,9 +33,7 @@ export function useEngagement({
       const response = await likesService.toggleLike(opportunityId, previousLiked)
       setIsLiked(response.liked)
       setLikesCount(response.total_likes)
-    } catch (error) {
-      console.error('Failed to toggle like:', error)
-      // Rollback on error
+    } catch {
       setIsLiked(previousLiked)
       setLikesCount(previousCount)
     } finally {
@@ -45,7 +42,6 @@ export function useEngagement({
   }
 
   const toggleBookmark = async () => {
-    // Optimistic update
     const previousBookmarked = isBookmarked
     setIsBookmarked(!isBookmarked)
     setIsTogglingBookmark(true)
@@ -56,9 +52,7 @@ export function useEngagement({
       } else {
         await bookmarksService.toggleBookmark(opportunityId)
       }
-    } catch (error) {
-      console.error('Failed to toggle bookmark:', error)
-      // Rollback on error
+    } catch {
       setIsBookmarked(previousBookmarked)
     } finally {
       setIsTogglingBookmark(false)

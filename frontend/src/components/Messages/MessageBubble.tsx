@@ -31,13 +31,10 @@ export function MessageBubble({ content, timestamp, isSent, isDelivered = false,
           {isSent && (
             <span className="ml-1">
               {isRead ? (
-                // Double check - Blue (Read)
                 <CheckCheck className="h-3 w-3 text-blue-400" />
               ) : isDelivered ? (
-                // Double check - Grey (Delivered but not read)
                 <CheckCheck className="h-3 w-3 text-slate-400" />
               ) : (
-                // Single check - Grey (Sent but not delivered)
                 <Check className="h-3 w-3 text-slate-400" />
               )}
             </span>

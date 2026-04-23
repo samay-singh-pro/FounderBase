@@ -27,37 +27,16 @@ export function MessageModal({ isOpen, recipientId, recipientUsername, onClose }
       return
     }
     
-    console.log('=== SENDING MESSAGE REQUEST ===')
-    console.log('Recipient ID:', recipientId)
-    console.log('Recipient Username:', recipientUsername)
-    console.log('Message Content:', messageRequest.trim())
-    
     setIsSendingMessage(true)
     setError('')
     
     try {
-      console.log('Step 1: Creating conversation with recipient ID:', recipientId)
+      await messageApi.startConversation(recipientId, messageRequest.trim())
       
-      // Create or get conversation
-      const conversation = await messageApi.createConversation(recipientId)
-      console.log('Step 2: Conversation created/retrieved:', conversation)
-      
-      // Send the first message
-      console.log('Step 3: Sending message to conversation ID:', conversation.id)
-      const sentMessage = await messageApi.sendMessage(conversation.id, messageRequest.trim())
-      console.log('Step 4: Message sent successfully:', sentMessage)
-      
-      // Close modal and clear message
       setMessageRequest('')
       onClose()
-      
-      // Navigate to messages page
-      console.log('Step 5: Navigating to /messages')
       navigate('/messages')
     } catch (err: any) {
-      console.error('ERROR sending message:', err)
-      console.error('Error response:', err.response)
-      console.error('Error details:', err.response?.data)
       setError(err.response?.data?.detail || 'Failed to send message. Please try again.')
     } finally {
       setIsSendingMessage(false)

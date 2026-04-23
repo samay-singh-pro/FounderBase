@@ -95,18 +95,13 @@ export default function MessagesPage() {
             ? { ...conv, isOnline, lastSeen: lastSeen || conv.lastSeen }
             : conv
         ))
-      } else if (message.type === 'error') {
-        console.error('WebSocket error:', message.message)
       }
     },
-    onConnect: () => {},
-    onDisconnect: () => {},
-    onError: (error) => {
-      console.error('WebSocket connection error:', error)
+    onError: () => {
+      // Silent fail
     }
   })
 
-  // ─── Unified init on mount ────────────────────────────────────────────
   useEffect(() => {
     if (initDone.current) return
     initDone.current = true
@@ -116,28 +111,20 @@ export default function MessagesPage() {
     const conversationParam = searchParams.get('conversation')
 
     if (userId && username) {
-      // Coming from OpportunityCard — run both calls in parallel, don't block page
       setSearchParams({}, { replace: true })
       initFromCard(userId, username)
     } else if (conversationParam) {
-      // Deep-link to a specific conversation
       setSearchParams({}, { replace: true })
       loadConversations().then(() => {
         setActiveConversationId(conversationParam)
       })
     } else {
-      // Normal page visit
       loadConversations()
     }
   }, [])
 
-  /**
-   * Fast-path init when navigating from an opportunity card.
-   * Loads conversations and checks target user status in parallel.
-   */
   const initFromCard = async (userId: string, username: string) => {
     try {
-      // Fire both requests simultaneously — key optimization
       const [conversationsData, checkResult] = await Promise.all([
         fetchAndTransformConversations(),
         messageApi.checkConversation(userId),
@@ -146,16 +133,12 @@ export default function MessagesPage() {
       applyConversations(conversationsData)
 
       if (checkResult.exists && checkResult.conversation_id) {
-        // Conversation already exists — open it directly, no second load
         setActiveConversationId(checkResult.conversation_id)
       } else {
-        // No conversation — pop the modal instantly
         setPendingRecipient({ userId, username })
         setShowNewChatModal(true)
       }
-    } catch (error) {
-      console.error('Failed to init from card:', error)
-      // Fallback: show modal so user can still send
+    } catch {
       setPendingRecipient({ userId, username })
       setShowNewChatModal(true)
     } finally {
@@ -183,9 +166,6 @@ export default function MessagesPage() {
     }
   }, [activeConversationId])
 
-  // ─── Data helpers ─────────────────────────────────────────────────────
-
-  /** Fetches conversations + online status and returns transformed data (no state mutation). */
   const fetchAndTransformConversations = async () => {
     const [data, onlineStatus] = await Promise.all([
       messageApi.getConversations(),
@@ -212,7 +192,6 @@ export default function MessagesPage() {
     return transformed
   }
 
-  /** Applies transformed conversation data to state. */
   const applyConversations = (
     transformed: ConversationListItem[],
     autoSelect = false
@@ -235,14 +214,13 @@ export default function MessagesPage() {
     }
   }
 
-  /** Full load with loading state — used for normal page visits and refreshes. */
   const loadConversations = async () => {
     try {
       setLoading(true)
       const transformed = await fetchAndTransformConversations()
       applyConversations(transformed, true)
-    } catch (error) {
-      console.error('Failed to load conversations:', error)
+    } catch {
+      // Silent fail
     } finally {
       setLoading(false)
     }
@@ -269,8 +247,8 @@ export default function MessagesPage() {
           lastSeen: status?.last_seen || conv.lastSeen
         }
       }))
-    } catch (error) {
-      console.error('Failed to update online status:', error)
+    } catch {
+      // Silent fail
     }
   }
 
@@ -292,14 +270,12 @@ export default function MessagesPage() {
         ...prev,
         [conversationId]: transformed,
       }))
-    } catch (error) {
-      console.error('Failed to load messages:', error)
+    } catch {
+      // Silent fail
     } finally {
       setLoadingMessages(false)
     }
   }
-
-  // ─── Actions ──────────────────────────────────────────────────────────
 
   const handleSendMessage = async (message: string) => {
     if (!activeConversationId || !message.trim() || !isConnected) return
@@ -311,14 +287,8 @@ export default function MessagesPage() {
     }
   }
 
-  /**
-   * Called from NewChatModal. Uses the combined start endpoint to create
-   * conversation + send initial message in one call, then optimistically
-   * inserts into the list.
-   */
   const handleNewChat = async (userId: string, username: string, message?: string) => {
     try {
-      // Use combined endpoint when message is provided, otherwise plain create
       const conversation = message
         ? await messageApi.startConversation(userId, message)
         : await messageApi.createConversation(userId)
@@ -326,7 +296,6 @@ export default function MessagesPage() {
       setShowNewChatModal(false)
       setPendingRecipient(null)
 
-      // Optimistically add the conversation to the list (no full reload)
       const newConv: ConversationListItem = {
         id: conversation.id,
         username: conversation.other_user_username || username,
@@ -346,7 +315,6 @@ export default function MessagesPage() {
 
       setActiveConversationId(conversation.id)
 
-      // Optimistically show the sent message in the chat
       if (message) {
         setConversationMessages(prev => ({
           ...prev,
@@ -360,8 +328,8 @@ export default function MessagesPage() {
           }],
         }))
       }
-    } catch (error) {
-      console.error('Failed to create conversation:', error)
+    } catch {
+      alert('Failed to create conversation. Please try again.')
     }
   }
 
@@ -371,16 +339,13 @@ export default function MessagesPage() {
     try {
       await messageApi.acceptRequest(activeConversationId)
 
-      // Optimistically update status in local state
       const accepted = requests.find(r => r.id === activeConversationId)
       if (accepted) {
         const updated = { ...accepted, status: 'accepted' as const }
         setRequests(prev => prev.filter(r => r.id !== activeConversationId))
         setConversations(prev => [updated, ...prev])
       }
-    } catch (error) {
-      console.error('Failed to accept request:', error)
-      // Reload on error to get correct state
+    } catch {
       loadConversations()
     }
   }
@@ -391,11 +356,9 @@ export default function MessagesPage() {
     try {
       await messageApi.declineRequest(activeConversationId)
 
-      // Optimistically remove from requests
       setRequests(prev => prev.filter(r => r.id !== activeConversationId))
       setActiveConversationId(null)
-    } catch (error) {
-      console.error('Failed to decline request:', error)
+    } catch {
       loadConversations()
     }
   }
@@ -419,12 +382,10 @@ export default function MessagesPage() {
       }))
 
       setFollowers(transformed)
-    } catch (error) {
-      console.error('Failed to load followers:', error)
+    } catch {
+      // Silent fail
     }
   }
-
-  // ─── Render ───────────────────────────────────────────────────────────
 
   const activeConversation = conversations.find(
     conv => conv.id === activeConversationId
@@ -444,7 +405,6 @@ export default function MessagesPage() {
     <div className="h-[calc(100vh-65px)] bg-slate-50 dark:bg-slate-950">
       <div className="h-full max-w-7xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] h-full">
-          {/* Conversations List */}
           <div className={`${activeConversationId ? 'hidden md:block' : 'block'} relative`}>
             <ConversationList
               conversations={conversations}
@@ -455,7 +415,6 @@ export default function MessagesPage() {
               requestsCount={requests.length}
             />
 
-            {/* WebSocket connection status */}
             {!isConnected && (
               <div className="absolute bottom-4 left-4 bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-300 dark:border-yellow-700 rounded-lg px-3 py-2 text-xs text-yellow-800 dark:text-yellow-300">
                 {connectionError || 'Connecting to chat server...'}
@@ -463,7 +422,6 @@ export default function MessagesPage() {
             )}
           </div>
 
-          {/* Chat Thread */}
           <div className={`${!activeConversationId ? 'hidden md:flex' : 'flex'} flex-col`}>
             {activeConversation && activeConversationId ? (
               <ChatThread
@@ -496,7 +454,6 @@ export default function MessagesPage() {
         </div>
       </div>
 
-      {/* New Chat Modal */}
       <NewChatModal
         isOpen={showNewChatModal}
         onClose={() => {

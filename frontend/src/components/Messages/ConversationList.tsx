@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, PenSquare, RefreshCw } from 'lucide-react'
+import { Search, PenSquare } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
 
 interface Conversation {
@@ -20,8 +20,6 @@ interface ConversationListProps {
   activeConversationId: string | null
   onSelectConversation: (id: string) => void
   onNewChat: () => void
-  onRefresh?: () => void
-  isRefreshing?: boolean
   requestsCount?: number
 }
 
@@ -31,8 +29,6 @@ export function ConversationList({
   activeConversationId,
   onSelectConversation,
   onNewChat,
-  onRefresh,
-  isRefreshing = false,
   requestsCount = 0
 }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('')
@@ -45,25 +41,12 @@ export function ConversationList({
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900 border-r border-slate-200 dark:border-slate-800">
-      {/* Header */}
       <div className="p-4 border-b border-slate-200 dark:border-slate-800">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             Messages
           </h2>
           <div className="flex items-center gap-2">
-            {onRefresh && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 h-9 w-9 p-0"
-                title="Refresh conversations"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-              </Button>
-            )}
             <Button
               size="sm"
               onClick={onNewChat}
@@ -75,7 +58,6 @@ export function ConversationList({
           </div>
         </div>
 
-        {/* Tabs */}
         <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
           <button
             onClick={() => setActiveTab('messages')}
@@ -104,7 +86,6 @@ export function ConversationList({
           </button>
         </div>
         
-        {/* Search */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           <Input
@@ -117,7 +98,6 @@ export function ConversationList({
         </div>
       </div>
 
-      {/* Conversations List */}
       <div className="flex-1 overflow-y-auto">
         {filteredConversations.length > 0 ? (
           filteredConversations.map((conversation) => (

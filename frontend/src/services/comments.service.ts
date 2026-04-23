@@ -20,10 +20,6 @@ export interface CreateCommentData {
   content: string
 }
 
-export interface UpdateCommentData {
-  content: string
-}
-
 export const commentsService = {
   getComments: async (opportunityId: string): Promise<Comment[]> => {
     const response = await api.get<CommentsResponse>(
@@ -38,17 +34,6 @@ export const commentsService = {
   ): Promise<Comment> => {
     const response = await api.post<Comment>(
       `/api/v1/opportunities/${opportunityId}/comments`,
-      data
-    )
-    return response.data
-  },
-
-  updateComment: async (
-    commentId: string,
-    data: UpdateCommentData
-  ): Promise<Comment> => {
-    const response = await api.put<Comment>(
-      `/api/v1/comments/${commentId}`,
       data
     )
     return response.data

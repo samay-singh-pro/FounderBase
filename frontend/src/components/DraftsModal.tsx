@@ -35,8 +35,8 @@ export default function DraftsModal({ isOpen, onClose, onSelectDraft }: DraftsMo
     try {
       const data = await draftsService.getAll()
       setDrafts(data)
-    } catch (error) {
-      console.error('Failed to load drafts:', error)
+    } catch {
+      // Silent fail
     } finally {
       setIsLoading(false)
     }
@@ -62,8 +62,7 @@ export default function DraftsModal({ isOpen, onClose, onSelectDraft }: DraftsMo
       await draftsService.delete(draftToDelete)
       setDrafts(drafts.filter((d) => d.id !== draftToDelete))
       setDraftToDelete(null)
-    } catch (error) {
-      console.error('Failed to delete draft:', error)
+    } catch {
       alert('Failed to delete draft. Please try again.')
     }
   }

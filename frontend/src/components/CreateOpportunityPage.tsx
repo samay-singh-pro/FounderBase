@@ -71,8 +71,7 @@ export default function CreateOpportunityPage() {
             links: opportunity.link ? opportunity.link.split(',') : [''],
           })
         })
-        .catch((err) => {
-          console.error('Failed to load opportunity:', err)
+        .catch(() => {
           setError('Failed to load opportunity')
         })
         .finally(() => {
@@ -124,10 +123,8 @@ export default function CreateOpportunityPage() {
         setSuccess('Draft saved successfully!')
       }
       
-      // Clear success message after 3 seconds
       setTimeout(() => setSuccess(null), 3000)
     } catch (err: any) {
-      console.error('Failed to save draft:', err)
       setError('Failed to save draft')
     } finally {
       setIsSavingDraft(false)
@@ -186,14 +183,12 @@ export default function CreateOpportunityPage() {
         await opportunitiesService.update(id, opportunityData)
       } else {
         await opportunitiesService.create(opportunityData)
-        // Auto-delete draft after successful publish
         if (currentDraftId) {
           try {
             await draftsService.delete(currentDraftId)
             setCurrentDraftId(null)
-          } catch (err) {
-            console.error('Failed to delete draft after publish:', err)
-            // Don't block navigation even if draft delete fails
+          } catch {
+            // Silent fail
           }
         }
       }
@@ -211,9 +206,7 @@ export default function CreateOpportunityPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 py-6">
-        {/* Page Title Section */}
         <div className="mb-8 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Button
@@ -271,7 +264,6 @@ export default function CreateOpportunityPage() {
           </div>
         )}
 
-        {/* Category and Type Selectors */}
         <div className="mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <Label htmlFor="category" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
@@ -313,7 +305,6 @@ export default function CreateOpportunityPage() {
           </div>
         </div>
 
-        {/* Tabs */}
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 w-full justify-start rounded-none p-0 h-auto">
             <TabsTrigger
@@ -339,7 +330,6 @@ export default function CreateOpportunityPage() {
             </TabsTrigger>
           </TabsList>
 
-          {/* Text Tab */}
           <TabsContent value="text" className="mt-6 space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -393,7 +383,6 @@ export default function CreateOpportunityPage() {
             </div>
           </TabsContent>
 
-          {/* Images & Video Tab (UI Only) */}
           <TabsContent value="media" className="mt-6">
             <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-12 text-center">
               <Image className="h-12 w-12 mx-auto mb-4 text-slate-400 dark:text-slate-600" />
@@ -404,7 +393,6 @@ export default function CreateOpportunityPage() {
             </div>
           </TabsContent>
 
-          {/* Link Tab */}
           <TabsContent value="link" className="mt-6 space-y-4">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -454,7 +442,6 @@ export default function CreateOpportunityPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Action Buttons */}
         <div className="mt-6 flex justify-end gap-3">
           <Button
             variant="outline"
@@ -475,7 +462,6 @@ export default function CreateOpportunityPage() {
         </div>
       </main>
 
-      {/* Drafts Modal */}
       <DraftsModal
         isOpen={showDraftsModal}
         onClose={() => setShowDraftsModal(false)}

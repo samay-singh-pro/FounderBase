@@ -44,7 +44,6 @@ export default function OpportunityDetailPage() {
   const [isSendingRequest, setIsSendingRequest] = useState(false)
   const [isFollowing, setIsFollowing] = useState(false)
 
-  // Scroll to top when page loads
   useEffect(() => {
     window.scrollTo(0, 0)
   }, [id])
@@ -66,8 +65,7 @@ export default function OpportunityDetailPage() {
       setIsLiked(data.is_liked)
       setIsBookmarked(data.is_bookmarked)
       setIsFollowing(data.is_following)
-    } catch (err) {
-      console.error('Failed to load opportunity:', err)
+    } catch {
       setError('Failed to load post. Please try again.')
     } finally {
       setIsLoading(false)
@@ -80,8 +78,7 @@ export default function OpportunityDetailPage() {
       const fetchedComments = await commentsService.getComments(id!)
       const commentsArray = Array.isArray(fetchedComments) ? fetchedComments : []
       setComments(commentsArray)
-    } catch (error) {
-      console.error('Failed to load comments:', error)
+    } catch {
       setComments([])
     } finally {
       setIsLoadingComments(false)
@@ -91,7 +88,6 @@ export default function OpportunityDetailPage() {
   const handleToggleLike = async () => {
     if (!opportunity) return
     
-    // Optimistic update - update UI immediately
     const previousLiked = isLiked
     const previousCount = likesCount
     
@@ -101,12 +97,9 @@ export default function OpportunityDetailPage() {
     
     try {
       const response = await likesService.toggleLike(opportunity.id, previousLiked)
-      // Update with actual server response
       setIsLiked(response.liked)
       setLikesCount(response.total_likes)
-    } catch (error) {
-      console.error('Failed to toggle like:', error)
-      // Revert optimistic update on error
+    } catch {
       setIsLiked(previousLiked)
       setLikesCount(previousCount)
     } finally {
@@ -117,7 +110,6 @@ export default function OpportunityDetailPage() {
   const handleToggleBookmark = async () => {
     if (!opportunity) return
     
-    // Optimistic update - update UI immediately
     const previousBookmarked = isBookmarked
     setIsBookmarked(!isBookmarked)
     setIsTogglingBookmark(true)
@@ -128,9 +120,7 @@ export default function OpportunityDetailPage() {
       } else {
         await bookmarksService.toggleBookmark(opportunity.id)
       }
-    } catch (error) {
-      console.error('Failed to toggle bookmark:', error)
-      // Revert optimistic update on error
+    } catch {
       setIsBookmarked(previousBookmarked)
     } finally {
       setIsTogglingBookmark(false)
@@ -148,8 +138,7 @@ export default function OpportunityDetailPage() {
     try {
       await opportunitiesService.delete(opportunity.id)
       navigate('/')
-    } catch (error) {
-      console.error('Failed to delete opportunity:', error)
+    } catch {
       alert('Failed to delete post. Please try again.')
     } finally {
       setIsDeleting(false)
@@ -165,8 +154,7 @@ export default function OpportunityDetailPage() {
       const comment = await commentsService.createComment(opportunity.id, { content: newComment })
       setComments([...comments, comment])
       setNewComment('')
-    } catch (error) {
-      console.error('Failed to create comment:', error)
+    } catch {
       alert('Failed to post comment. Please try again.')
     } finally {
       setIsSubmittingComment(false)
@@ -185,8 +173,7 @@ export default function OpportunityDetailPage() {
       await commentsService.deleteComment(commentToDelete)
       setComments(comments.filter((c) => c.id !== commentToDelete))
       setCommentToDelete(null)
-    } catch (error) {
-      console.error('Failed to delete comment:', error)
+    } catch {
       alert('Failed to delete comment. Please try again.')
     }
   }
@@ -197,22 +184,19 @@ export default function OpportunityDetailPage() {
       await navigator.clipboard.writeText(url)
       setShowCopied(true)
       setTimeout(() => setShowCopied(false), 2000)
-    } catch (err) {
-      console.error('Failed to copy:', err)
+    } catch {
+      // Silent fail
     }
   }
 
   const handleFollow = async () => {
     if (!opportunity) return
     
-    // Optimistic update
     setIsFollowing(true)
-    
+
     try {
       await followsService.followUser(opportunity.user_id)
-    } catch (error) {
-      console.error('Failed to follow user:', error)
-      // Rollback on error
+    } catch {
       setIsFollowing(false)
       alert('Failed to follow user. Please try again.')
     }
@@ -221,14 +205,11 @@ export default function OpportunityDetailPage() {
   const handleUnfollow = async () => {
     if (!opportunity) return
     
-    // Optimistic update
     setIsFollowing(false)
-    
+
     try {
       await followsService.unfollowUser(opportunity.user_id)
-    } catch (error) {
-      console.error('Failed to unfollow user:', error)
-      // Rollback on error
+    } catch {
       setIsFollowing(true)
       alert('Failed to unfollow user. Please try again.')
     }
@@ -300,12 +281,10 @@ export default function OpportunityDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Main Content */}
       <div className="max-w-3xl mx-auto px-4 py-6">
         <Card className="w-full border border-slate-200 dark:border-slate-800">
           <CardHeader className="pb-3">
             <div className="flex items-start gap-3">
-              {/* User Avatar */}
               <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getAvatarColor(opportunity.username).light} ${getAvatarColor(opportunity.username).dark} flex items-center justify-center ${getAvatarColor(opportunity.username).text} font-semibold text-base flex-shrink-0`}>
                 {getUsernameInitials(opportunity.username)}
               </div>
@@ -333,7 +312,6 @@ export default function OpportunityDetailPage() {
                 </div>
               </div>
 
-              {/* Follow button or action menu */}
               {user && user.username !== opportunity.username && (
                 <div className="flex items-center gap-2">
                   {!isFollowing ? (
@@ -388,7 +366,6 @@ export default function OpportunityDetailPage() {
                 </div>
               )}
 
-              {/* Three-dot menu for owner */}
               {user && user.username === opportunity.username && (
                 <DropdownMenu
                   trigger={
@@ -433,7 +410,6 @@ export default function OpportunityDetailPage() {
               {opportunity.description}
             </p>
             
-            {/* Display Links if available */}
             {opportunity.link && (
               <div className="mt-4 space-y-2">
                 {opportunity.link.split(',').map((link, index) => {
@@ -472,7 +448,6 @@ export default function OpportunityDetailPage() {
           </CardContent>
 
           <CardFooter className="flex flex-col gap-0 px-0 pb-0 pt-0">
-            {/* Engagement Stats and Actions */}
             <div className="w-full px-4 pb-3">
               <div className="flex items-center justify-between text-sm text-slate-600 dark:text-slate-400 mb-2">
                 <span>{likesCount} {likesCount === 1 ? 'like' : 'likes'}</span>
@@ -534,7 +509,6 @@ export default function OpportunityDetailPage() {
               </div>
             </div>
 
-            {/* Comments Section */}
             <div className="border-t border-slate-200 dark:border-slate-800" />
             
             <div className="w-full px-4 py-4 space-y-4">
@@ -554,8 +528,7 @@ export default function OpportunityDetailPage() {
                         const avatarColor = getAvatarColor(comment.username)
                         return (
                           <div key={comment.id} className="flex gap-3">
-                            {/* Comment user avatar */}
-                            <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-xs flex-shrink-0`}>
+                              <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-xs flex-shrink-0`}>
                               {comment.username?.charAt(0).toUpperCase() || 'U'}
                             </div>
                             
@@ -592,7 +565,6 @@ export default function OpportunityDetailPage() {
                     </p>
                   )}
 
-                  {/* Comment Input */}
                   <form onSubmit={handleSubmitComment} className="flex gap-3 pt-2">
                     <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-xs flex-shrink-0">
                       {getUsernameInitials(user?.username)}
@@ -622,7 +594,6 @@ export default function OpportunityDetailPage() {
         </Card>
       </div>
 
-      {/* Delete Post Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteConfirm}
         onClose={() => setShowDeleteConfirm(false)}
@@ -634,7 +605,6 @@ export default function OpportunityDetailPage() {
         variant="danger"
       />
 
-      {/* Delete Comment Confirmation Dialog */}
       <ConfirmDialog
         isOpen={showDeleteCommentConfirm}
         onClose={() => {
@@ -648,7 +618,6 @@ export default function OpportunityDetailPage() {
         cancelText="Cancel"
         variant="danger"
       />
-      {/* Send Message / Connection Request Dialog */}
       {showMessageDialog && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70"
@@ -716,7 +685,6 @@ export default function OpportunityDetailPage() {
                       return
                     }
                     setIsSendingRequest(true)
-                    // TODO: Backend implementation
                     setTimeout(() => {
                       setIsSendingRequest(false)
                       setShowMessageDialog(false)

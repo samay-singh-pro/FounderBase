@@ -19,7 +19,6 @@ export default function AuthPage() {
   const [error, setError] = useState<string | null>(null)
   const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
-  // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/', { replace: true })
@@ -38,16 +37,9 @@ export default function AuthPage() {
         password: loginData.password,
       })
       
-      console.log('Login response:', response)
-      
-      // Store token and user in auth store
       setAuth(response.access_token, response.user)
-      
-      console.log('Auth set, navigating to /')
-      // Redirect to landing page
       navigate('/', { replace: true })
     } catch (err: any) {
-      console.error('Login error:', err)
       setError(err.response?.data?.detail || 'Incorrect email or password. Please try again.')
     } finally {
       setIsLoading(false)
@@ -73,14 +65,10 @@ export default function AuthPage() {
         password: signupData.password,
       })
       
-      // Clear signup form
       setSignupData({ email: '', username: '', password: '', confirmPassword: '' })
-      
-      // Show success message and switch to login tab
       setSuccessMessage('Account created successfully! Please sign in.')
       setActiveTab('login')
     } catch (err: any) {
-      console.error('Signup error:', err)
       setError(err.response?.data?.detail || 'Signup failed. Please try again.')
     } finally {
       setIsLoading(false)

@@ -16,15 +16,12 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
   }, [initialIsFollowing])
 
   const follow = async () => {
-    // Optimistic update
     setIsFollowing(true)
     onFollowChange?.(userId, true)
     
     try {
       await followsService.followUser(userId)
-    } catch (error) {
-      console.error('Failed to follow user:', error)
-      // Rollback on error
+    } catch {
       setIsFollowing(false)
       onFollowChange?.(userId, false)
       alert('Failed to follow user. Please try again.')
@@ -32,15 +29,12 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
   }
 
   const unfollow = async () => {
-    // Optimistic update
     setIsFollowing(false)
     onFollowChange?.(userId, false)
     
     try {
       await followsService.unfollowUser(userId)
-    } catch (error) {
-      console.error('Failed to unfollow user:', error)
-      // Rollback on error
+    } catch {
       setIsFollowing(true)
       onFollowChange?.(userId, true)
       alert('Failed to unfollow user. Please try again.')

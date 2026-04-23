@@ -93,7 +93,6 @@ export default function LandingPage() {
         setFilters((prev) => ({ ...prev, skip: response.opportunities.length }))
       }
     } catch (err: any) {
-      console.error('Failed to load opportunities:', err)
       setError('Failed to load opportunities. Please try again.')
     } finally {
       setIsLoading(false)
@@ -120,8 +119,8 @@ export default function LandingPage() {
       setTotal(response.total)
       setHasMore(response.opportunities.length === filters.limit)
       setFilters((prev) => ({ ...prev, skip: opportunities.length + response.opportunities.length }))
-    } catch (err: any) {
-      console.error('Failed to load more opportunities:', err)
+    } catch {
+      // Silent fail on load more
     } finally {
       setIsLoadingMore(false)
       isLoadingMoreRef.current = false
@@ -165,7 +164,6 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* Main Content */}
       <main className="max-w-3xl mx-auto px-4 py-6">
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
@@ -176,9 +174,7 @@ export default function LandingPage() {
           </p>
         </div>
 
-        {/* Modern Filters Section */}
         <div className="mb-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 p-5 shadow-sm">
-          {/* Search Bar */}
           <div className="relative mb-4">
             <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
               <Search className="h-5 w-5 text-slate-400 dark:text-slate-500" />
@@ -192,7 +188,6 @@ export default function LandingPage() {
             />
           </div>
 
-          {/* Filters Row */}
           <div className="flex items-center gap-3 flex-wrap">
             <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 dark:text-slate-300">
               <SlidersHorizontal className="h-4 w-4" />
@@ -206,7 +201,6 @@ export default function LandingPage() {
 
             <div className="h-6 w-px bg-slate-300 dark:bg-slate-700"></div>
 
-            {/* Category Filter */}
             <div className="relative">
               <CustomSelect
                 value={filters.category || ''}
@@ -229,7 +223,6 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Type Filter */}
             <div className="relative">
               <CustomSelect
                 value={filters.type || ''}
@@ -247,7 +240,6 @@ export default function LandingPage() {
 
             <div className="h-6 w-px bg-slate-300 dark:bg-slate-700"></div>
 
-            {/* Sort By */}
             <div className="flex items-center gap-2">
               <ArrowUpDown className="h-4 w-4 text-slate-500" />
               <CustomSelect
@@ -264,7 +256,6 @@ export default function LandingPage() {
               />
             </div>
 
-            {/* Sort Order Toggle */}
             <Button
               variant="outline"
               size="sm"
@@ -275,7 +266,6 @@ export default function LandingPage() {
               {filters.sort_order === 'asc' ? '↑' : '↓'}
             </Button>
 
-            {/* Clear Filters - pushed to the right */}
             {hasActiveFilters && (
               <Button
                 variant="ghost"
@@ -289,7 +279,6 @@ export default function LandingPage() {
             )}
           </div>
 
-          {/* Active Filter Badges */}
           {(filters.category || filters.type) && (
             <div className="flex items-center gap-2 flex-wrap mt-3 pt-3 border-t border-slate-200 dark:border-slate-800">
               <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Active filters:</span>
@@ -326,7 +315,6 @@ export default function LandingPage() {
           </div>
         )}
 
-        {/* Results Count */}
         {!isLoading && opportunities.length > 0 && (
           <div className="mb-4 flex items-center justify-between">
             <p className="text-sm text-slate-600 dark:text-slate-400">
@@ -377,7 +365,6 @@ export default function LandingPage() {
               ))}
             </div>
 
-            {/* Infinite Scroll Observer Target */}
             {hasMore && (
               <div ref={observerTarget} className="py-8 flex justify-center">
                 {isLoadingMore && (
@@ -388,7 +375,6 @@ export default function LandingPage() {
               </div>
             )}
 
-            {/* End of Results */}
             {!hasMore && opportunities.length > 0 && (
               <div className="py-8 text-center">
                 <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-sm">

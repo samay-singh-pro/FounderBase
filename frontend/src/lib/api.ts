@@ -10,7 +10,6 @@ export const api = axios.create({
   },
 })
 
-// Request interceptor to add auth token if available
 api.interceptors.request.use(
   (config) => {
     const token = useAuthStore.getState().accessToken
@@ -19,34 +18,22 @@ api.interceptors.request.use(
     }
     return config
   },
-  (error) => {
-    return Promise.reject(error)
-  }
+  (error) => Promise.reject(error)
 )
 
-// Response interceptor for error handling
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      // Only auto-logout if this is not a login/signup request
       const isAuthEndpoint = error.config?.url?.includes('/auth/login') || error.config?.url?.includes('/auth/signup')
-      
       if (!isAuthEndpoint) {
-        // Token expired or invalid - automatically logout
-        const { clearAuth } = useAuthStore.getState()
-        clearAuth()
-        // Redirect to login page
+        useAuthStore.getState().clearAuth()
         window.location.href = '/'
       }
     }
     return Promise.reject(error)
   }
 )
-
-// ============================================================================
-// Message API Functions
-// ============================================================================
 
 export interface Conversation {
   id: string
@@ -73,13 +60,11 @@ export interface Message {
 }
 
 export const messageApi = {
-  // Get all conversations
   getConversations: async (): Promise<Conversation[]> => {
     const response = await api.get('/api/v1/messages/conversations')
     return response.data
   },
 
-  // Check if conversation exists with a user
   checkConversation: async (userId: string): Promise<{
     exists: boolean
     conversation_id: string | null
@@ -89,13 +74,11 @@ export const messageApi = {
     return response.data
   },
 
-  // Get online status for users in conversations
   getOnlineStatus: async (): Promise<Record<string, { is_online: boolean; last_seen?: string }>> => {
     const response = await api.get('/api/v1/messages/online-status')
     return response.data
   },
 
-  // Create or get conversation with a user
   createConversation: async (recipientId: string): Promise<Conversation> => {
     const response = await api.post('/api/v1/messages/conversations', {
       recipient_id: recipientId,
@@ -103,7 +86,6 @@ export const messageApi = {
     return response.data
   },
 
-  // Create conversation and optionally send the first message in one call
   startConversation: async (recipientId: string, message?: string): Promise<Conversation> => {
     const response = await api.post('/api/v1/messages/conversations/start', {
       recipient_id: recipientId,
@@ -112,31 +94,16 @@ export const messageApi = {
     return response.data
   },
 
-  // Get a specific conversation
-  getConversation: async (conversationId: string): Promise<Conversation> => {
-    const response = await api.get(`/api/v1/messages/conversations/${conversationId}`)
-    return response.data
-  },
-
-  // Get pending message requests
-  getRequests: async (): Promise<Conversation[]> => {
-    const response = await api.get('/api/v1/messages/requests')
-    return response.data
-  },
-
-  // Accept a message request
   acceptRequest: async (conversationId: string): Promise<Conversation> => {
     const response = await api.post(`/api/v1/messages/requests/${conversationId}/accept`)
     return response.data
   },
 
-  // Decline a message request
   declineRequest: async (conversationId: string): Promise<Conversation> => {
     const response = await api.post(`/api/v1/messages/requests/${conversationId}/decline`)
     return response.data
   },
 
-  // Get messages in a conversation
   getMessages: async (
     conversationId: string,
     limit: number = 100,
@@ -145,27 +112,6 @@ export const messageApi = {
     const response = await api.get(`/api/v1/messages/${conversationId}`, {
       params: { limit, offset },
     })
-    return response.data
-  },
-
-  // Send a message
-  sendMessage: async (conversationId: string, content: string): Promise<Message> => {
-    const response = await api.post('/api/v1/messages', {
-      conversation_id: conversationId,
-      content,
-    })
-    return response.data
-  },
-
-  // Mark a message as read
-  markMessageRead: async (messageId: string): Promise<Message> => {
-    const response = await api.patch(`/api/v1/messages/${messageId}/read`)
-    return response.data
-  },
-
-  // Mark all messages in conversation as read
-  markConversationRead: async (conversationId: string): Promise<{ message: string }> => {
-    const response = await api.post(`/api/v1/messages/conversations/${conversationId}/mark-read`)
     return response.data
   },
 }

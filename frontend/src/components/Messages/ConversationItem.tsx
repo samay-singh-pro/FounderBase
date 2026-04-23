@@ -34,7 +34,6 @@ export function ConversationItem({
           : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
       }`}
     >
-      {/* Avatar with online indicator */}
       <div className="relative flex-shrink-0">
         <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm`}>
           {getUsernameInitials(username)}
@@ -44,7 +43,6 @@ export function ConversationItem({
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
