@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
 import { Label } from './ui/label'
@@ -34,6 +34,7 @@ const TYPE_OPTIONS = [
 export default function CreateOpportunityPage() {
   const navigate = useNavigate()
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const [activeTab, setActiveTab] = useState('text')
   const [isEditMode, setIsEditMode] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
@@ -79,6 +80,31 @@ export default function CreateOpportunityPage() {
         })
     }
   }, [id])
+
+  // Load draft data if draftId is in query params
+  useEffect(() => {
+    const draftId = searchParams.get('draftId')
+    if (draftId) {
+      setIsLoading(true)
+      draftsService.getById(draftId)
+        .then((draft) => {
+          setCurrentDraftId(draft.id)
+          setFormData({
+            title: draft.title,
+            description: draft.description,
+            type: draft.type,
+            category: draft.category,
+            links: draft.link ? draft.link.split(',') : [''],
+          })
+        })
+        .catch(() => {
+          setError('Failed to load draft')
+        })
+        .finally(() => {
+          setIsLoading(false)
+        })
+    }
+  }, [searchParams])
 
   const handleAddLink = () => {
     setFormData({ ...formData, links: [...(formData.links || []), ''] })

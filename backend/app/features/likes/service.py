@@ -149,3 +149,33 @@ def get_opportunity_likes(
     )
     
     return likes
+
+
+def get_user_liked_opportunities(
+    db: Session,
+    user_id: str,
+    skip: int = 0,
+    limit: int = 50
+) -> list[OpportunityLike]:
+    """
+    Get all opportunities liked by a user.
+    
+    Args:
+        db: Database session
+        user_id: ID of the user
+        skip: Number of records to skip
+        limit: Maximum records to return
+        
+    Returns:
+        List of OpportunityLike objects with opportunity data
+    """
+    likes = (
+        db.query(OpportunityLike)
+        .filter(OpportunityLike.user_id == user_id)
+        .order_by(OpportunityLike.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+    return likes

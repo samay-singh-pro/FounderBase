@@ -1,16 +1,20 @@
 """Likes API routes"""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.db.connection import get_db
 from app.features.auth.dependencies import get_current_user
 from app.features.auth.models import User
 from app.features.likes import service
-from app.features.likes.schemas import LikeResponse, LikeStatus
+from app.features.likes.schemas import LikeResponse, LikeStatus, LikedOpportunitiesResponse
 from app.features.opportunities.service import get_opportunity_by_id
+from app.features.opportunities.schemas import OpportunityPublic
+from app.features.likes.models import OpportunityLike
+from app.features.opportunities.models import Opportunity
+from app.features.follows import service as follows_service
 
-router = APIRouter(tags=["Likes"])
+router = APIRouter(prefix="/likes", tags=["Likes"])
 
 
 @router.post(
@@ -184,3 +188,72 @@ def get_likes_count(
     total_likes = service.get_like_count(db, opportunity_id)
     
     return {"total_likes": total_likes}
+
+
+@router.get(
+    "/me/liked-opportunities",
+    response_model=LikedOpportunitiesResponse,
+    summary="Get my liked opportunities",
+    description="Get all opportunities liked by the current user (authentication required)"
+)
+def get_my_liked_opportunities(
+    skip: int = Query(0, ge=0, description="Number of records to skip"),
+    limit: int = Query(50, ge=1, le=100, description="Maximum records to return"),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> LikedOpportunitiesResponse:
+    """
+    Get all opportunities liked by the current user.
+    
+    **Authentication required**: Bearer token in Authorization header
+    
+    Returns a list of opportunities in reverse chronological order (most recently liked first).
+    """
+    user_id = str(current_user.id)
+    
+    # Get likes with opportunity and user data
+    results = (
+        db.query(OpportunityLike, Opportunity, User.username)
+        .join(Opportunity, OpportunityLike.opportunity_id == Opportunity.id)
+        .join(User, Opportunity.user_id == User.id)
+        .filter(OpportunityLike.user_id == user_id)
+        .order_by(OpportunityLike.created_at.desc())
+        .offset(skip)
+        .limit(limit)
+        .all()
+    )
+    
+    # Convert to opportunity public schemas
+    opportunities = []
+    for like, opp, username in results:
+        # Check if current user is following the post author
+        is_following = follows_service.is_following(db, user_id, opp.user_id)
+        
+        opp_dict = {
+            "id": opp.id,
+            "title": opp.title,
+            "description": opp.description,
+            "type": opp.type,
+            "category": opp.category,
+            "link": opp.link,
+            "user_id": opp.user_id,
+            "username": username,
+            "created_at": opp.created_at,
+            "status": opp.status,
+            "likes_count": 0,
+            "comments_count": 0,
+            "is_liked": True,  # Since these are all liked
+            "is_bookmarked": False,
+            "is_following": is_following,
+        }
+        opportunities.append(OpportunityPublic.model_validate(opp_dict))
+    
+    # Get total count
+    total = db.query(OpportunityLike).filter(
+        OpportunityLike.user_id == user_id
+    ).count()
+    
+    return LikedOpportunitiesResponse(
+        opportunities=opportunities,
+        total=total
+    )

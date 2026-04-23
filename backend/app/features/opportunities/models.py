@@ -2,11 +2,15 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.connection import Base
+
+if TYPE_CHECKING:
+    from app.features.likes.models import OpportunityLike
 
 
 class Opportunity(Base):
@@ -47,6 +51,9 @@ class Opportunity(Base):
         nullable=False
     )
     status: Mapped[str] = mapped_column(String(50), default="created", nullable=False, index=True)
+    
+    # Relationships
+    likes: Mapped[list["OpportunityLike"]] = relationship("OpportunityLike", back_populates="opportunity", cascade="all, delete-orphan")
     
     def __repr__(self) -> str:
         return f"<Opportunity(id={self.id}, title={self.title[:30]}, type={self.type})>"

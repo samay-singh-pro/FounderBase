@@ -2,11 +2,15 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, UniqueConstraint
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import String, UniqueConstraint, ForeignKey
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.connection import Base
+
+if TYPE_CHECKING:
+    from app.features.opportunities.models import Opportunity
 
 
 class OpportunityLike(Base):
@@ -31,8 +35,16 @@ class OpportunityLike(Base):
     )
     
     # References
-    opportunity_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    opportunity_id: Mapped[str] = mapped_column(
+        String(36), 
+        ForeignKey('opportunities.id', ondelete='CASCADE'),
+        nullable=False, 
+        index=True
+    )
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    
+    # Relationships
+    opportunity: Mapped["Opportunity"] = relationship("Opportunity", back_populates="likes")
     
     # Timestamp
     created_at: Mapped[datetime] = mapped_column(

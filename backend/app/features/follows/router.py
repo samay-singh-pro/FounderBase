@@ -13,7 +13,9 @@ from app.features.follows.schemas import (
     FollowersListResponse,
     FollowingListResponse,
     FollowerPublic,
-    FollowingPublic
+    FollowingPublic,
+    SuggestedUsersResponse,
+    SuggestedUserPublic
 )
 
 router = APIRouter(tags=["Follows"])
@@ -231,3 +233,41 @@ def get_follow_status(
     is_following = service.is_following(db, current_user.id, user_id)
     
     return FollowStatusResponse(is_following=is_following)
+
+
+@router.get(
+    "/users/suggestions",
+    response_model=SuggestedUsersResponse,
+    summary="Get suggested users to follow",
+    description="Get paginated list of users that the current user is not following (authentication required)"
+)
+def get_suggested_users(
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> SuggestedUsersResponse:
+    """
+    Get suggested users for the current user to follow.
+    
+    **Authentication required**: Bearer token in Authorization header
+    
+    **Pagination parameters**:
+    - `page`: Page number (1-based, default: 1)
+    - `limit`: Number of suggestions per page (1-100, default: 20)
+    
+    Returns list of users that the current user is not following,
+    ordered by most recent accounts first.
+    """
+    # Get suggested users
+    suggested_data, total = service.get_suggested_users(db, current_user.id, page, limit)
+    
+    # Convert to Pydantic models
+    users = [SuggestedUserPublic(**user) for user in suggested_data]
+    
+    return SuggestedUsersResponse(
+        users=users,
+        total=total,
+        page=page,
+        limit=limit
+    )

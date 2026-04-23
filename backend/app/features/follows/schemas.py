@@ -43,3 +43,20 @@ class FollowingListResponse(BaseModel):
     total: int
     page: int
     limit: int
+
+
+class SuggestedUserPublic(BaseModel):
+    """Public schema for a suggested user to follow"""
+    model_config = ConfigDict(from_attributes=True)
+    
+    id: str
+    username: str
+    email: str
+
+
+class SuggestedUsersResponse(BaseModel):
+    """Response schema for suggested users with pagination"""
+    users: list[SuggestedUserPublic]
+    total: int
+    page: int
+    limit: int

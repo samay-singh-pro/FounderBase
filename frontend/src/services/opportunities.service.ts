@@ -81,4 +81,18 @@ export const opportunitiesService = {
   delete: async (id: string): Promise<void> => {
     await api.delete(`/api/v1/opportunities/${id}`)
   },
+
+  getMyOpportunities: async (filters: OpportunityFilters = {}): Promise<OpportunitiesResponse> => {
+    const params = new URLSearchParams()
+    
+    if (filters.skip !== undefined) params.append('skip', filters.skip.toString())
+    if (filters.limit !== undefined) params.append('limit', filters.limit.toString())
+    if (filters.sort_by) params.append('sort_by', filters.sort_by)
+    if (filters.sort_order) params.append('sort_order', filters.sort_order)
+    
+    const response = await api.get<OpportunitiesResponse>(
+      `/api/v1/opportunities/me/opportunities?${params.toString()}`
+    )
+    return response.data
+  },
 }

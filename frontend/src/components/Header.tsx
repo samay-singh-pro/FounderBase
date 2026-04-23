@@ -1,8 +1,9 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from './ui/button'
 import { useAuthStore } from '@/store/authStore'
-import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare } from 'lucide-react'
+import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare, User, FileText, Bookmark, Users, Settings, ChevronDown } from 'lucide-react'
 import { useState, useEffect } from 'react'
+import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
 
 interface HeaderProps {
   onRefresh?: () => void
@@ -101,19 +102,57 @@ export default function Header({ onRefresh, isRefreshing = false, showBackButton
             {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
           </Button>
           
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800">
-            <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-xs">
-              {user?.username?.charAt(0).toUpperCase()}
+          <DropdownMenu
+            align="end"
+            trigger={
+              <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
+                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-xs">
+                  {user?.username?.charAt(0).toUpperCase()}
+                </div>
+                <span className="hidden sm:inline text-sm font-medium text-slate-700 dark:text-slate-300">
+                  {user?.username}
+                </span>
+                <ChevronDown className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+              </button>
+            }
+          >
+            <div className="px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              {user?.email}
             </div>
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              {user?.username}
-            </span>
-          </div>
-          
-          <Button variant="outline" size="sm" onClick={handleLogout} className="rounded-full">
-            <LogOut className="h-4 w-4 sm:mr-2" />
-            <span className="hidden sm:inline">Logout</span>
-          </Button>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+            
+            <DropdownMenuItem onClick={() => navigate('/profile')}>
+              <User className="h-4 w-4 mr-2" />
+              My Profile
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => navigate('/profile?tab=posts')}>
+              <FileText className="h-4 w-4 mr-2" />
+              My Posts
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => navigate('/profile?tab=bookmarks')}>
+              <Bookmark className="h-4 w-4 mr-2" />
+              Bookmarks
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => navigate('/network')}>
+              <Users className="h-4 w-4 mr-2" />
+              Network
+            </DropdownMenuItem>
+            
+            <DropdownMenuItem onClick={() => navigate('/settings')}>
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </DropdownMenuItem>
+            
+            <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+            
+            <DropdownMenuItem onClick={handleLogout} destructive>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </DropdownMenuItem>
+          </DropdownMenu>
         </div>
       </div>
     </header>

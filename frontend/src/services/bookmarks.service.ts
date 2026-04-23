@@ -5,6 +5,13 @@ export interface BookmarkResponse {
   bookmarked: boolean
 }
 
+export interface BookmarksListResponse {
+  opportunities: any[]
+  total: number
+  skip: number
+  limit: number
+}
+
 export const bookmarksService = {
   toggleBookmark: async (opportunityId: string): Promise<BookmarkResponse> => {
     const response = await api.post<BookmarkResponse>(
@@ -17,6 +24,13 @@ export const bookmarksService = {
   removeBookmark: async (opportunityId: string): Promise<BookmarkResponse> => {
     const response = await api.delete<BookmarkResponse>(
       `/api/v1/opportunities/${opportunityId}/bookmark`
+    )
+    return response.data
+  },
+
+  getMyBookmarks: async (skip: number = 0, limit: number = 50): Promise<BookmarksListResponse> => {
+    const response = await api.get<BookmarksListResponse>(
+      `/api/v1/bookmarks?skip=${skip}&limit=${limit}`
     )
     return response.data
   },

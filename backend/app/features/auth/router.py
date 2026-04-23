@@ -2,11 +2,18 @@
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 
 from app.core.security import create_access_token
 from app.db.connection import get_db
 from app.features.auth import service
-from app.features.auth.schemas import Token, UserCreate, UserLogin, UserPublic
+from app.features.auth.schemas import Token, UserCreate, UserLogin, UserPublic, UserStats
+from app.features.auth.dependencies import get_current_user
+from app.features.auth.models import User
+from app.features.opportunities.models import Opportunity
+from app.features.follows.models import Follow
+from app.features.bookmarks.models import OpportunityBookmark
+from app.features.likes.models import OpportunityLike
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -70,4 +77,64 @@ def login(
     return Token(
         access_token=access_token,
         user=UserPublic.model_validate(user)
+    )
+
+
+@router.get(
+    "/me/stats",
+    response_model=UserStats,
+    summary="Get current user statistics",
+    description="Get statistics for the authenticated user (authentication required)"
+)
+def get_my_stats(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+) -> UserStats:
+    """
+    Get statistics for the current authenticated user.
+    
+    **Authentication required**: Bearer token in Authorization header
+    
+    Returns:
+    - posts_count: Total number of posts created
+    - followers_count: Number of followers
+    - following_count: Number of users following
+    - total_likes: Total likes received on all posts
+    - bookmarks_count: Number of bookmarked posts
+    """
+    user_id = str(current_user.id)
+    
+    # Count posts
+    posts_count = db.query(func.count(Opportunity.id)).filter(
+        Opportunity.user_id == user_id
+    ).scalar() or 0
+    
+    # Count followers (people who follow this user)
+    followers_count = db.query(func.count(Follow.follower_id)).filter(
+        Follow.followee_id == user_id
+    ).scalar() or 0
+    
+    # Count following (people this user follows)
+    following_count = db.query(func.count(Follow.followee_id)).filter(
+        Follow.follower_id == user_id
+    ).scalar() or 0
+    
+    # Count total likes on user's posts
+    total_likes = db.query(func.count(OpportunityLike.id)).join(
+        Opportunity, OpportunityLike.opportunity_id == Opportunity.id
+    ).filter(
+        Opportunity.user_id == user_id
+    ).scalar() or 0
+    
+    # Count bookmarks
+    bookmarks_count = db.query(func.count(OpportunityBookmark.id)).filter(
+        OpportunityBookmark.user_id == user_id
+    ).scalar() or 0
+    
+    return UserStats(
+        posts_count=posts_count,
+        followers_count=followers_count,
+        following_count=following_count,
+        total_likes=total_likes,
+        bookmarks_count=bookmarks_count
     )

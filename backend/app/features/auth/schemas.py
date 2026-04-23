@@ -46,3 +46,13 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     user: UserPublic
+
+
+class UserStats(BaseModel):
+    """User statistics"""
+    
+    posts_count: int = Field(description="Total number of posts created")
+    followers_count: int = Field(description="Number of followers")
+    following_count: int = Field(description="Number of users following")
+    total_likes: int = Field(description="Total likes received on all posts")
+    bookmarks_count: int = Field(description="Number of bookmarked posts")

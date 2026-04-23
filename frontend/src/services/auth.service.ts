@@ -21,6 +21,14 @@ export interface AuthResponse {
   }
 }
 
+export interface UserStats {
+  posts_count: number
+  followers_count: number
+  following_count: number
+  total_likes: number
+  bookmarks_count: number
+}
+
 export const authService = {
   login: async (credentials: LoginCredentials): Promise<AuthResponse> => {
     const response = await api.post<AuthResponse>('/api/v1/auth/login', {
@@ -42,5 +50,10 @@ export const authService = {
   logout: () => {
     localStorage.removeItem('access_token')
     localStorage.removeItem('user')
+  },
+
+  getMyStats: async (): Promise<UserStats> => {
+    const response = await api.get<UserStats>('/api/v1/auth/me/stats')
+    return response.data
   },
 }

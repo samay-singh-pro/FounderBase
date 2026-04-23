@@ -10,6 +10,7 @@ from app.features.bookmarks import service
 from app.features.bookmarks.schemas import BookmarkResponse
 from app.features.opportunities.schemas import OpportunityList, OpportunityPublic
 from app.features.opportunities.service import get_opportunity_by_id
+from app.features.follows import service as follows_service
 
 router = APIRouter(tags=["Bookmarks"])
 
@@ -127,15 +128,40 @@ def get_my_bookmarks(
     """
     user_id = str(current_user.id)
     
-    opportunities, total = service.get_user_bookmarks(
+    results, total = service.get_user_bookmarks(
         db=db,
         user_id=user_id,
         skip=skip,
         limit=limit
     )
     
+    # Convert results to OpportunityPublic schemas
+    opportunities = []
+    for opp, username in results:
+        # Check if current user is following the post author
+        is_following = follows_service.is_following(db, user_id, opp.user_id)
+        
+        opp_dict = {
+            "id": opp.id,
+            "title": opp.title,
+            "description": opp.description,
+            "type": opp.type,
+            "category": opp.category,
+            "link": opp.link,
+            "user_id": opp.user_id,
+            "username": username,
+            "created_at": opp.created_at,
+            "status": opp.status,
+            "likes_count": 0,
+            "comments_count": 0,
+            "is_liked": False,
+            "is_bookmarked": True,  # Since these are all bookmarked
+            "is_following": is_following,
+        }
+        opportunities.append(OpportunityPublic.model_validate(opp_dict))
+    
     return OpportunityList(
-        opportunities=[OpportunityPublic.model_validate(opp) for opp in opportunities],
+        opportunities=opportunities,
         total=total,
         skip=skip,
         limit=limit,

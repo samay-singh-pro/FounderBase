@@ -4,6 +4,9 @@ import LandingPage from './components/LandingPage'
 import CreateOpportunityPage from './components/CreateOpportunityPage'
 import OpportunityDetailPage from './components/OpportunityDetailPage'
 import MessagesPage from './components/MessagesPage'
+import ProfilePage from './components/ProfilePage'
+import NetworkPage from './components/NetworkPage'
+import SettingsPage from './components/SettingsPage'
 import Header from './components/Header'
 import { ToastContainer } from './components/ui/toast'
 import { useAuthStore } from './store/authStore'
@@ -36,6 +39,9 @@ function App() {
           <Route path="/edit/:id" element={<CreateOpportunityPage />} />
           <Route path="/opportunity/:id" element={<OpportunityDetailPage />} />
           <Route path="/messages" element={<MessagesPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/network" element={<NetworkPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
         </Route>
         
         <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,7 @@
 """Pydantic schemas for like responses"""
 
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -30,3 +31,10 @@ class LikeDetail(BaseModel):
     opportunity_id: str
     user_id: str
     created_at: datetime
+
+
+class LikedOpportunitiesResponse(BaseModel):
+    """Response for user's liked opportunities"""
+    
+    opportunities: list[Any]  # List of opportunity objects
+    total: int

@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.features.bookmarks.models import OpportunityBookmark
 from app.features.opportunities.models import Opportunity
+from app.features.auth.models import User
 
 
 def add_bookmark(db: Session, user_id: str, opportunity_id: str) -> bool:
@@ -106,9 +107,9 @@ def get_user_bookmarks(
     user_id: str,
     skip: int = 0,
     limit: int = 50
-) -> tuple[list[Opportunity], int]:
+) -> tuple[list[tuple[Opportunity, str]], int]:
     """
-    Get all bookmarked opportunities for a user.
+    Get all bookmarked opportunities for a user with usernames.
     
     Args:
         db: Database session
@@ -117,14 +118,18 @@ def get_user_bookmarks(
         limit: Maximum records to return
         
     Returns:
-        Tuple of (list of Opportunity objects, total count)
+        Tuple of (list of (Opportunity, username) tuples, total count)
     """
-    # Query to get bookmarked opportunities with join
+    # Query to get bookmarked opportunities with User join
     query = (
-        db.query(Opportunity)
+        db.query(Opportunity, User.username)
         .join(
             OpportunityBookmark,
             Opportunity.id == OpportunityBookmark.opportunity_id
+        )
+        .join(
+            User,
+            Opportunity.user_id == User.id
         )
         .filter(OpportunityBookmark.user_id == user_id)
     )
@@ -133,7 +138,7 @@ def get_user_bookmarks(
     total = query.count()
     
     # Get paginated results, ordered by bookmark creation (most recent first)
-    opportunities = (
+    results = (
         query
         .order_by(OpportunityBookmark.created_at.desc())
         .offset(skip)
@@ -141,4 +146,4 @@ def get_user_bookmarks(
         .all()
     )
     
-    return opportunities, total
+    return results, total

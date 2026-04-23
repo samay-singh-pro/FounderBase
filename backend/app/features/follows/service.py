@@ -218,3 +218,61 @@ def get_following(
     ]
     
     return following, total
+
+
+def get_suggested_users(
+    db: Session,
+    user_id: str,
+    page: int = 1,
+    limit: int = 20
+) -> tuple[list[dict], int]:
+    """
+    Get list of suggested users for a user to follow.
+    Returns users that the current user is NOT following (excluding themselves).
+    
+    Args:
+        db: Database session
+        user_id: ID of user requesting suggestions
+        page: Page number (1-based)
+        limit: Number of suggestions per page
+        
+    Returns:
+        Tuple of (suggested_users_list, total_count)
+        Each user is a dict with: id, username, email
+    """
+    # Calculate offset
+    offset = (page - 1) * limit
+    
+    # Get IDs of users that current user is already following
+    following_ids_subquery = (
+        db.query(Follow.followee_id)
+        .filter(Follow.follower_id == user_id)
+        .subquery()
+    )
+    
+    # Get users NOT in following list and NOT the current user
+    suggested_users_query = (
+        db.query(User.id, User.username, User.email)
+        .filter(
+            User.id != user_id,  # Exclude self
+            ~User.id.in_(following_ids_subquery)  # Exclude already following
+        )
+        .order_by(User.username.asc())  # Alphabetically by username
+    )
+    
+    # Get total count
+    total = suggested_users_query.count()
+    
+    # Get paginated results
+    users = suggested_users_query.offset(offset).limit(limit).all()
+    
+    suggested_users = [
+        {
+            'id': row.id,
+            'username': row.username,
+            'email': row.email
+        }
+        for row in users
+    ]
+    
+    return suggested_users, total
