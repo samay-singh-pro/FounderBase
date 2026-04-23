@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { commentsService, type Comment } from '@/services/comments.service'
+import { useToastStore } from '@/store/toastStore'
 
 export interface UseCommentsProps {
   opportunityId: string
@@ -43,7 +44,7 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
       setComments([...comments, comment])
       setNewComment('')
     } catch {
-      alert('Failed to post comment. Please try again.')
+      useToastStore.getState().error('Failed to post comment. Please try again.')
     } finally {
       setIsSubmittingComment(false)
     }
@@ -54,7 +55,7 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
       await commentsService.deleteComment(commentId)
       setComments(comments.filter((c) => c.id !== commentId))
     } catch {
-      alert('Failed to delete comment. Please try again.')
+      useToastStore.getState().error('Failed to delete comment. Please try again.')
     }
   }
 

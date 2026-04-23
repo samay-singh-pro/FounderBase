@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Button } from './ui/button'
 import { X, Edit, Trash2, FileText, Loader2 } from 'lucide-react'
 import { draftsService, type Draft } from '@/services/drafts.service'
+import { useToastStore } from '@/store/toastStore'
 import { ConfirmDialog } from './ui/confirm-dialog'
 
 interface DraftsModalProps {
@@ -63,7 +64,7 @@ export default function DraftsModal({ isOpen, onClose, onSelectDraft }: DraftsMo
       setDrafts(drafts.filter((d) => d.id !== draftToDelete))
       setDraftToDelete(null)
     } catch {
-      alert('Failed to delete draft. Please try again.')
+      useToastStore.getState().error('Failed to delete draft. Please try again.')
     }
   }
 

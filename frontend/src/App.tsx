@@ -5,6 +5,7 @@ import CreateOpportunityPage from './components/CreateOpportunityPage'
 import OpportunityDetailPage from './components/OpportunityDetailPage'
 import MessagesPage from './components/MessagesPage'
 import Header from './components/Header'
+import { ToastContainer } from './components/ui/toast'
 import { useAuthStore } from './store/authStore'
 
 function ProtectedLayout() {
@@ -25,6 +26,7 @@ function ProtectedLayout() {
 function App() {
   return (
     <BrowserRouter>
+      <ToastContainer />
       <Routes>
         <Route path="/auth" element={<AuthPage />} />
         

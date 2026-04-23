@@ -7,6 +7,7 @@ import { MessageSquare } from 'lucide-react'
 import { Spinner } from './ui/spinner'
 import { messageApi } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
+import { useToastStore } from '@/store/toastStore'
 import api from '@/lib/api'
 import { useWebSocket } from '@/hooks/useWebSocket'
 
@@ -283,7 +284,7 @@ export default function MessagesPage() {
     const success = wsSendMessage(activeConversationId, message)
 
     if (!success) {
-      alert('Failed to send message. Please check your connection.')
+      useToastStore.getState().error('Failed to send message. Please check your connection.')
     }
   }
 
@@ -329,7 +330,7 @@ export default function MessagesPage() {
         }))
       }
     } catch {
-      alert('Failed to create conversation. Please try again.')
+      useToastStore.getState().error('Failed to create conversation. Please try again.')
     }
   }
 

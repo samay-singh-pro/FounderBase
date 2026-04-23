@@ -11,6 +11,7 @@ import { commentsService, type Comment } from '@/services/comments.service'
 import { bookmarksService } from '@/services/bookmarks.service'
 import { followsService } from '@/services/follows.service'
 import { useAuthStore } from '@/store/authStore'
+import { useToastStore } from '@/store/toastStore'
 import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2, MessageSquare, UserPlus, UserCheck } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
 import { ConfirmDialog } from './ui/confirm-dialog'
@@ -139,7 +140,7 @@ export default function OpportunityDetailPage() {
       await opportunitiesService.delete(opportunity.id)
       navigate('/')
     } catch {
-      alert('Failed to delete post. Please try again.')
+      useToastStore.getState().error('Failed to delete post. Please try again.')
     } finally {
       setIsDeleting(false)
     }
@@ -155,7 +156,7 @@ export default function OpportunityDetailPage() {
       setComments([...comments, comment])
       setNewComment('')
     } catch {
-      alert('Failed to post comment. Please try again.')
+      useToastStore.getState().error('Failed to post comment. Please try again.')
     } finally {
       setIsSubmittingComment(false)
     }
@@ -174,7 +175,7 @@ export default function OpportunityDetailPage() {
       setComments(comments.filter((c) => c.id !== commentToDelete))
       setCommentToDelete(null)
     } catch {
-      alert('Failed to delete comment. Please try again.')
+      useToastStore.getState().error('Failed to delete comment. Please try again.')
     }
   }
 
@@ -198,7 +199,7 @@ export default function OpportunityDetailPage() {
       await followsService.followUser(opportunity.user_id)
     } catch {
       setIsFollowing(false)
-      alert('Failed to follow user. Please try again.')
+      useToastStore.getState().error('Failed to follow user. Please try again.')
     }
   }
 
@@ -211,7 +212,7 @@ export default function OpportunityDetailPage() {
       await followsService.unfollowUser(opportunity.user_id)
     } catch {
       setIsFollowing(true)
-      alert('Failed to unfollow user. Please try again.')
+      useToastStore.getState().error('Failed to unfollow user. Please try again.')
     }
   }
 
@@ -681,7 +682,7 @@ export default function OpportunityDetailPage() {
                 <Button
                   onClick={async () => {
                     if (!connectionMessage.trim()) {
-                      alert('Please write a message')
+                      useToastStore.getState().warning('Please write a message')
                       return
                     }
                     setIsSendingRequest(true)
@@ -689,7 +690,7 @@ export default function OpportunityDetailPage() {
                       setIsSendingRequest(false)
                       setShowMessageDialog(false)
                       setConnectionMessage('')
-                      alert('Connection request sent! (Frontend only - backend not implemented yet)')
+                      useToastStore.getState().success('Connection request sent!')
                     }, 1000)
                   }}
                   disabled={isSendingRequest || !connectionMessage.trim()}

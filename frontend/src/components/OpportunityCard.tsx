@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { opportunitiesService, type Opportunity } from '@/services/opportunities.service'
 import { useAuthStore } from '@/store/authStore'
+import { useToastStore } from '@/store/toastStore'
 import { ExternalLink } from 'lucide-react'
 import { ConfirmDialog } from './ui/confirm-dialog'
 import { useEngagement } from '@/hooks/useEngagement'
@@ -55,7 +56,7 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
       await opportunitiesService.delete(opportunity.id)
       onDelete?.(opportunity.id)
     } catch {
-      alert('Failed to delete the post. Please try again.')
+      useToastStore.getState().error('Failed to delete the post. Please try again.')
     } finally {
       setIsDeleting(false)
     }

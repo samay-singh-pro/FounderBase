@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { followsService } from '@/services/follows.service'
+import { useToastStore } from '@/store/toastStore'
 
 export interface UseFollowProps {
   userId: string
@@ -24,7 +25,7 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
     } catch {
       setIsFollowing(false)
       onFollowChange?.(userId, false)
-      alert('Failed to follow user. Please try again.')
+      useToastStore.getState().error('Failed to follow user. Please try again.')
     }
   }
 
@@ -37,7 +38,7 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
     } catch {
       setIsFollowing(true)
       onFollowChange?.(userId, true)
-      alert('Failed to unfollow user. Please try again.')
+      useToastStore.getState().error('Failed to unfollow user. Please try again.')
     }
   }
 
