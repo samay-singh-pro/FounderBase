@@ -50,6 +50,23 @@ function formatLastSeen(lastSeen?: string): string {
   return 'Last seen a while ago'
 }
 
+function formatMessageDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const today = new Date()
+  const yesterday = new Date(today)
+  yesterday.setDate(yesterday.getDate() - 1)
+  
+  if (date.toDateString() === today.toDateString()) {
+    return 'Today'
+  } else if (date.toDateString() === yesterday.toDateString()) {
+    return 'Yesterday'
+  } else if (date.getFullYear() === today.getFullYear()) {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  } else {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  }
+}
+
 export function ChatThread({ 
   username, 
   messages, 
@@ -164,18 +181,32 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto p-4 bg-slate-50 dark:bg-slate-950">
+      <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
             <Spinner size="lg" />
           </div>
         ) : messages.length > 0 ? (
-          <>
-            {messages.map((message) => (
-              <MessageBubble key={message.id} {...message} />
-            ))}
+          <div className="max-w-4xl mx-auto px-6 py-6">
+            {messages.map((message, index) => {
+              const showDateSeparator = index === 0 || 
+                new Date(messages[index - 1].timestamp).toDateString() !== new Date(message.timestamp).toDateString()
+              
+              return (
+                <div key={message.id}>
+                  {showDateSeparator && (
+                    <div className="flex items-center justify-center my-6">
+                      <div className="bg-white dark:bg-slate-800 shadow-sm px-4 py-1.5 rounded-full text-xs font-medium text-slate-600 dark:text-slate-400">
+                        {formatMessageDate(message.timestamp)}
+                      </div>
+                    </div>
+                  )}
+                  <MessageBubble {...message} />
+                </div>
+              )
+            })}
             <div ref={messagesEndRef} />
-          </>
+          </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
             <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-bold text-2xl mb-4`}>

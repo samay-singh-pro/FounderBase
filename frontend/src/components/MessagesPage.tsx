@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { ConversationList } from './Messages/ConversationList'
 import { ChatThread } from './Messages/ChatThread'
+import { ChatInfo } from './Messages/ChatInfo'
 import { NewChatModal } from './Messages/NewChatModal'
 import { MessageSquare } from 'lucide-react'
 import { Spinner } from './ui/spinner'
@@ -373,8 +374,8 @@ export default function MessagesPage() {
 
   const loadFollowers = async () => {
     try {
-      const response = await api.get('/api/v1/follows/following')
-      const followingUsers = response.data
+      const response = await api.get('/api/v1/following')
+      const followingUsers = response.data.following || []
 
       const transformed: Follower[] = followingUsers.map((user: any) => ({
         id: user.id,
@@ -383,8 +384,8 @@ export default function MessagesPage() {
       }))
 
       setFollowers(transformed)
-    } catch {
-      // Silent fail
+    } catch (error) {
+      console.error('Failed to load followers:', error)
     }
   }
 
@@ -404,9 +405,9 @@ export default function MessagesPage() {
 
   return (
     <div className="h-[calc(100vh-65px)] bg-slate-50 dark:bg-slate-950">
-      <div className="h-full max-w-7xl mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] h-full">
-          <div className={`${activeConversationId ? 'hidden md:block' : 'block'} relative`}>
+      <div className="h-full max-w-[1800px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] xl:grid-cols-[380px_1fr_340px] h-full">
+          <div className={`${activeConversationId ? 'hidden md:block' : 'block'} relative h-full overflow-hidden`}>
             <ConversationList
               conversations={conversations}
               requests={requests}
@@ -423,7 +424,7 @@ export default function MessagesPage() {
             )}
           </div>
 
-          <div className={`${!activeConversationId ? 'hidden md:flex' : 'flex'} flex-col`}>
+          <div className={`${!activeConversationId ? 'hidden md:flex' : 'flex'} flex-col h-full overflow-hidden`}>
             {activeConversation && activeConversationId ? (
               <ChatThread
                 username={activeConversation.username}
@@ -452,6 +453,18 @@ export default function MessagesPage() {
               </div>
             )}
           </div>
+
+          {/* Chat Info Sidebar - Only visible on xl+ screens when a conversation is active */}
+          {activeConversation && activeConversationId && (
+            <div className="hidden xl:block h-full overflow-hidden">
+              <ChatInfo
+                username={activeConversation.username}
+                userId={activeConversation.otherUserId}
+                isOnline={activeConversation.isOnline}
+                lastSeen={activeConversation.lastSeen}
+              />
+            </div>
+          )}
         </div>
       </div>
 

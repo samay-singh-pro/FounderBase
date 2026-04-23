@@ -3,6 +3,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { opportunitiesService, type Opportunity, type OpportunityFilters } from '@/services/opportunities.service'
 import OpportunityCard from './OpportunityCard'
+import LeftSidebar from './LeftSidebar'
+import RightSidebar from './RightSidebar'
 import { CustomSelect } from './ui/custom-select'
 import { Search, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
 import { Spinner } from './ui/spinner'
@@ -164,15 +166,23 @@ export default function LandingPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      <main className="max-w-3xl mx-auto px-4 py-6">
-        <div className="mb-6">
-          <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-            Discover Ideas & Problems
-          </h2>
-          <p className="text-sm text-slate-600 dark:text-slate-400">
-            Explore opportunities, share your thoughts, and connect with innovators
-          </p>
-        </div>
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Sidebar - Hidden on mobile and tablet, shown on desktop */}
+          <aside className="hidden lg:block lg:col-span-3">
+            <LeftSidebar />
+          </aside>
+
+          {/* Main Content */}
+          <main className="lg:col-span-6">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
+                Discover Ideas & Problems
+              </h2>
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                Explore opportunities, share your thoughts, and connect with innovators
+              </p>
+            </div>
 
         <div className="mb-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 p-5 shadow-sm">
           <div className="relative mb-4">
@@ -387,7 +397,14 @@ export default function LandingPage() {
             )}
           </>
         )}
-      </main>
+          </main>
+
+          {/* Right Sidebar - Hidden on mobile and tablet, shown on desktop */}
+          <aside className="hidden lg:block lg:col-span-3">
+            <RightSidebar />
+          </aside>
+        </div>
+      </div>
     </div>
   )
 }

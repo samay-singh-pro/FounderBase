@@ -205,16 +205,10 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
                     <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm`}>
                       {getUsernameInitials(follower.username)}
                     </div>
-                    {follower.isOnline && (
-                      <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
-                    )}
                   </div>
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900 dark:text-slate-100">
                       {follower.username}
-                    </p>
-                    <p className="text-xs text-slate-500 dark:text-slate-400">
-                      {follower.isOnline ? 'Active now' : 'Offline'}
                     </p>
                   </div>
                 </div>

@@ -159,6 +159,44 @@ def get_followers(
 
 
 @router.get(
+    "/following",
+    response_model=FollowingListResponse,
+    summary="Get users that current user is following",
+    description="Get paginated list of users that the current user is following (authentication required)"
+)
+def get_my_following(
+    page: Annotated[int, Query(ge=1)] = 1,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+) -> FollowingListResponse:
+    """
+    Get list of users that the current user is following.
+    
+    **Authentication required**: Bearer token in Authorization header
+    
+    **Pagination parameters**:
+    - `page`: Page number (1-based, default: 1)
+    - `limit`: Number of following per page (1-100, default: 20)
+    
+    Returns list of users that the current user is following,
+    ordered by most recent first.
+    """
+    # Get following
+    following_data, total = service.get_following(db, current_user.id, page, limit)
+    
+    # Convert to Pydantic models
+    following = [FollowingPublic(**user) for user in following_data]
+    
+    return FollowingListResponse(
+        following=following,
+        total=total,
+        page=page,
+        limit=limit
+    )
+
+
+@router.get(
     "/users/{user_id}/following",
     response_model=FollowingListResponse,
     summary="Get users that user is following",
