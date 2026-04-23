@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Send } from 'lucide-react'
+import { Spinner } from '@/components/ui/spinner'
 import type { Comment } from '@/services/comments.service'
 import { formatDate } from '@/utils/date'
 import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
@@ -31,8 +32,8 @@ export function CommentsSection({
   if (isLoadingComments) {
     return (
       <div className="w-full px-4 py-3">
-        <div className="text-center py-4">
-          <p className="text-sm text-slate-500">Loading comments...</p>
+        <div className="flex justify-center py-4">
+          <Spinner size="sm" />
         </div>
       </div>
     )

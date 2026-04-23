@@ -130,8 +130,8 @@ export default function DraftsModal({ isOpen, onClose, onSelectDraft }: DraftsMo
           {/* Content */}
           <div className="flex-1 overflow-y-auto p-6">
             {isLoading ? (
-              <div className="text-center py-12">
-                <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400 mx-auto" />
+              <div className="flex justify-center py-12">
+                <Loader2 className="h-8 w-8 animate-spin text-blue-500 dark:text-blue-400" />
               </div>
             ) : drafts.length === 0 ? (
               <div className="text-center py-12">

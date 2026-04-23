@@ -254,8 +254,8 @@ export default function CreateOpportunityPage() {
         </div>
 
         {isLoading && (
-          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
-            <p className="text-sm text-blue-600 dark:text-blue-400">Loading opportunity...</p>
+          <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex items-center justify-center">
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600 dark:text-blue-400" />
           </div>
         )}
 

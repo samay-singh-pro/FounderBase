@@ -1,35 +1,67 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Send, Loader2 } from 'lucide-react'
+import { messageApi } from '@/lib/api'
 
 interface MessageModalProps {
   isOpen: boolean
+  recipientId: string
   recipientUsername: string
   onClose: () => void
 }
 
-export function MessageModal({ isOpen, recipientUsername, onClose }: MessageModalProps) {
+export function MessageModal({ isOpen, recipientId, recipientUsername, onClose }: MessageModalProps) {
+  const navigate = useNavigate()
   const [messageRequest, setMessageRequest] = useState('')
   const [isSendingMessage, setIsSendingMessage] = useState(false)
+  const [error, setError] = useState('')
 
   if (!isOpen) return null
 
   const handleSend = async () => {
     if (!messageRequest.trim()) {
-      alert('Please write a message')
+      setError('Please write a message')
       return
     }
     
+    console.log('=== SENDING MESSAGE REQUEST ===')
+    console.log('Recipient ID:', recipientId)
+    console.log('Recipient Username:', recipientUsername)
+    console.log('Message Content:', messageRequest.trim())
+    
     setIsSendingMessage(true)
-    // TODO: Backend implementation
-    setTimeout(() => {
-      setIsSendingMessage(false)
-      onClose()
+    setError('')
+    
+    try {
+      console.log('Step 1: Creating conversation with recipient ID:', recipientId)
+      
+      // Create or get conversation
+      const conversation = await messageApi.createConversation(recipientId)
+      console.log('Step 2: Conversation created/retrieved:', conversation)
+      
+      // Send the first message
+      console.log('Step 3: Sending message to conversation ID:', conversation.id)
+      const sentMessage = await messageApi.sendMessage(conversation.id, messageRequest.trim())
+      console.log('Step 4: Message sent successfully:', sentMessage)
+      
+      // Close modal and clear message
       setMessageRequest('')
-      alert('Message request sent! (Frontend only - backend not implemented yet)')
-    }, 1000)
+      onClose()
+      
+      // Navigate to messages page
+      console.log('Step 5: Navigating to /messages')
+      navigate('/messages')
+    } catch (err: any) {
+      console.error('ERROR sending message:', err)
+      console.error('Error response:', err.response)
+      console.error('Error details:', err.response?.data)
+      setError(err.response?.data?.detail || 'Failed to send message. Please try again.')
+    } finally {
+      setIsSendingMessage(false)
+    }
   }
 
   return (
@@ -53,6 +85,12 @@ export function MessageModal({ isOpen, recipientUsername, onClose }: MessageModa
         </div>
 
         <div className="space-y-4">
+          {error && (
+            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-700 dark:text-red-400 px-4 py-3 rounded-lg text-sm">
+              {error}
+            </div>
+          )}
+          
           <div>
             <Label htmlFor="message-request" className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-2 block">
               Your message
@@ -62,8 +100,9 @@ export function MessageModal({ isOpen, recipientUsername, onClose }: MessageModa
               placeholder="Hi! I saw your post and would love to connect..."
               value={messageRequest}
               onChange={(e) => {
-                if (e.target.value.length <= 200) {
+                if (e.target.value.length <= 500) {
                   setMessageRequest(e.target.value)
+                  setError('')
                 }
               }}
               rows={4}
@@ -72,10 +111,10 @@ export function MessageModal({ isOpen, recipientUsername, onClose }: MessageModa
             />
             <div className="flex items-center justify-between mt-1">
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                They'll receive this with your connection request
+                They'll receive this as a message request
               </p>
               <p className="text-xs text-slate-500 dark:text-slate-400">
-                {messageRequest.length}/200
+                {messageRequest.length}/500
               </p>
             </div>
           </div>

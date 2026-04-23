@@ -4,7 +4,8 @@ import { Input } from '@/components/ui/input'
 import { opportunitiesService, type Opportunity, type OpportunityFilters } from '@/services/opportunities.service'
 import OpportunityCard from './OpportunityCard'
 import { CustomSelect } from './ui/custom-select'
-import { RefreshCw, Search, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
+import { Spinner } from './ui/spinner'
 
 export default function LandingPage() {
   const [opportunities, setOpportunities] = useState<Opportunity[]>([])
@@ -336,9 +337,8 @@ export default function LandingPage() {
         )}
 
         {isLoading && !opportunities.length ? (
-          <div className="flex flex-col justify-center items-center py-20">
-            <RefreshCw className="h-8 w-8 animate-spin text-blue-500 dark:text-cyan-400 mb-3" />
-            <p className="text-sm text-slate-500 dark:text-slate-400">Loading opportunities...</p>
+          <div className="flex justify-center items-center py-20">
+            <Spinner size="lg" />
           </div>
         ) : opportunities.length === 0 ? (
           <div className="text-center py-20">
@@ -381,9 +381,8 @@ export default function LandingPage() {
             {hasMore && (
               <div ref={observerTarget} className="py-8 flex justify-center">
                 {isLoadingMore && (
-                  <div className="flex flex-col items-center gap-2">
-                    <RefreshCw className="h-6 w-6 animate-spin text-blue-500 dark:text-blue-400" />
-                    <p className="text-sm text-slate-500 dark:text-slate-400">Loading more...</p>
+                  <div className="flex items-center justify-center">
+                    <Spinner />
                   </div>
                 )}
               </div>

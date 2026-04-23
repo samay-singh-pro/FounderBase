@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Search, PenSquare } from 'lucide-react'
+import { Search, PenSquare, RefreshCw } from 'lucide-react'
 import { ConversationItem } from './ConversationItem'
 
 interface Conversation {
@@ -11,24 +11,35 @@ interface Conversation {
   timestamp: string
   unreadCount: number
   isOnline: boolean
+  status?: 'pending' | 'accepted' | 'declined'
 }
 
 interface ConversationListProps {
   conversations: Conversation[]
+  requests: Conversation[]
   activeConversationId: string | null
   onSelectConversation: (id: string) => void
   onNewChat: () => void
+  onRefresh?: () => void
+  isRefreshing?: boolean
+  requestsCount?: number
 }
 
 export function ConversationList({ 
   conversations, 
+  requests,
   activeConversationId,
   onSelectConversation,
-  onNewChat
+  onNewChat,
+  onRefresh,
+  isRefreshing = false,
+  requestsCount = 0
 }: ConversationListProps) {
   const [searchQuery, setSearchQuery] = useState('')
+  const [activeTab, setActiveTab] = useState<'messages' | 'requests'>('messages')
 
-  const filteredConversations = conversations.filter(conv =>
+  const currentList = activeTab === 'messages' ? conversations : requests
+  const filteredConversations = currentList.filter(conv =>
     conv.username.toLowerCase().includes(searchQuery.toLowerCase())
   )
 
@@ -40,14 +51,57 @@ export function ConversationList({
           <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100">
             Messages
           </h2>
-          <Button
-            size="sm"
-            onClick={onNewChat}
-            className="rounded-full bg-blue-600 hover:bg-blue-700 text-white h-9 w-9 p-0"
-            title="New message"
+          <div className="flex items-center gap-2">
+            {onRefresh && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={onRefresh}
+                disabled={isRefreshing}
+                className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 h-9 w-9 p-0"
+                title="Refresh conversations"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={onNewChat}
+              className="rounded-full bg-blue-600 hover:bg-blue-700 text-white h-9 w-9 p-0"
+              title="New message"
+            >
+              <PenSquare className="h-4 w-4" />
+            </Button>
+          </div>
+        </div>
+
+        {/* Tabs */}
+        <div className="flex gap-1 mb-4 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors ${
+              activeTab === 'messages'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
           >
-            <PenSquare className="h-4 w-4" />
-          </Button>
+            Messages
+          </button>
+          <button
+            onClick={() => setActiveTab('requests')}
+            className={`flex-1 px-4 py-2 text-sm font-medium rounded-md transition-colors relative ${
+              activeTab === 'requests'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+            }`}
+          >
+            Requests
+            {requestsCount > 0 && (
+              <span className="ml-2 bg-blue-600 text-white text-xs rounded-full px-2 py-0.5 font-medium">
+                {requestsCount}
+              </span>
+            )}
+          </button>
         </div>
         
         {/* Search */}

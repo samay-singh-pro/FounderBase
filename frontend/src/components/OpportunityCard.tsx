@@ -11,7 +11,6 @@ import { useFollow } from '@/hooks/useFollow'
 import { UserHeader } from './OpportunityCard/UserHeader'
 import { EngagementBar } from './OpportunityCard/EngagementBar'
 import { CommentsSection } from './OpportunityCard/CommentsSection'
-import { MessageModal } from './OpportunityCard/MessageModal'
 
 interface OpportunityCardProps {
   opportunity: Opportunity
@@ -27,7 +26,7 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
   const [showCopied, setShowCopied] = useState(false)
   const [showComments, setShowComments] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [showMessageModal, setShowMessageModal] = useState(false)
+
 
   const isOwner = user?.username === opportunity.username
 
@@ -87,6 +86,11 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
     }
   }
 
+  const handleSendMessage = async () => {
+    // Optimistic navigation - go to messages immediately
+    // The messages page will handle checking conversation status
+    navigate(`/messages?userId=${opportunity.user_id}&username=${opportunity.username}`)
+  }
 
   return (
     <>
@@ -104,7 +108,7 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
             isDeleting={isDeleting}
             onFollow={follow.follow}
             onUnfollow={follow.unfollow}
-            onSendMessage={() => setShowMessageModal(true)}
+            onSendMessage={handleSendMessage}
             onEdit={() => navigate(`/edit/${opportunity.id}`)}
             onDelete={() => setShowDeleteConfirm(true)}
           />
@@ -214,11 +218,6 @@ export default function OpportunityCard({ opportunity, onDelete, onFollowChange 
         variant="danger"
       />
 
-      <MessageModal
-        isOpen={showMessageModal}
-        recipientUsername={opportunity.username}
-        onClose={() => setShowMessageModal(false)}
-      />
     </>
   )
 }

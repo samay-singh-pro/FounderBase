@@ -209,7 +209,7 @@ export default function OpportunityDetailPage() {
     setIsFollowing(true)
     
     try {
-      await followsService.followUser(parseInt(opportunity.user_id))
+      await followsService.followUser(opportunity.user_id)
     } catch (error) {
       console.error('Failed to follow user:', error)
       // Rollback on error
@@ -225,7 +225,7 @@ export default function OpportunityDetailPage() {
     setIsFollowing(false)
     
     try {
-      await followsService.unfollowUser(parseInt(opportunity.user_id))
+      await followsService.unfollowUser(opportunity.user_id)
     } catch (error) {
       console.error('Failed to unfollow user:', error)
       // Rollback on error
@@ -543,8 +543,8 @@ export default function OpportunityDetailPage() {
               </h3>
 
               {isLoadingComments ? (
-                <div className="text-center py-8">
-                  <p className="text-sm text-slate-500">Loading comments...</p>
+                <div className="flex justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-blue-500 dark:text-blue-400" />
                 </div>
               ) : (
                 <>

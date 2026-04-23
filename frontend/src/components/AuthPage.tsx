@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
+import { Loader2 } from 'lucide-react'
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -47,7 +48,7 @@ export default function AuthPage() {
       navigate('/', { replace: true })
     } catch (err: any) {
       console.error('Login error:', err)
-      setError(err.response?.data?.detail || 'Login failed. Please check your credentials.')
+      setError(err.response?.data?.detail || 'Incorrect email or password. Please try again.')
     } finally {
       setIsLoading(false)
     }
@@ -151,7 +152,7 @@ export default function AuthPage() {
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Signing in...' : 'Sign In'}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Sign In'}
                   </Button>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">
@@ -261,7 +262,7 @@ export default function AuthPage() {
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>
-                    {isLoading ? 'Creating account...' : 'Create Account'}
+                    {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Create Account'}
                   </Button>
                   <div className="relative">
                     <div className="absolute inset-0 flex items-center">

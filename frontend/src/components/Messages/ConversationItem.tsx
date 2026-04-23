@@ -9,6 +9,7 @@ interface ConversationItemProps {
   unreadCount: number
   isActive: boolean
   isOnline?: boolean
+  status?: 'pending' | 'accepted' | 'declined'
   onClick: () => void
 }
 
@@ -19,6 +20,7 @@ export function ConversationItem({
   unreadCount,
   isActive,
   isOnline = false,
+  status,
   onClick,
 }: ConversationItemProps) {
   const avatarColor = getAvatarColor(username)
@@ -45,11 +47,18 @@ export function ConversationItem({
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <span className={`font-semibold text-sm truncate ${
-            unreadCount > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
-          }`}>
-            {username}
-          </span>
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`font-semibold text-sm truncate ${
+              unreadCount > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
+            }`}>
+              {username}
+            </span>
+            {status === 'pending' && (
+              <span className="flex-shrink-0 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full font-medium">
+                Pending
+              </span>
+            )}
+          </div>
           <span className="text-xs text-slate-500 dark:text-slate-400 flex-shrink-0 ml-2">
             {formatDate(timestamp)}
           </span>

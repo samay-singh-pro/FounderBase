@@ -15,7 +15,7 @@ export interface AuthResponse {
   access_token: string
   token_type: string
   user: {
-    id: number
+    id: string
     email: string
     username: string
   }

@@ -21,7 +21,7 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
     onFollowChange?.(userId, true)
     
     try {
-      await followsService.followUser(parseInt(userId))
+      await followsService.followUser(userId)
     } catch (error) {
       console.error('Failed to follow user:', error)
       // Rollback on error
@@ -37,7 +37,7 @@ export function useFollow({ userId, initialIsFollowing, onFollowChange }: UseFol
     onFollowChange?.(userId, false)
     
     try {
-      await followsService.unfollowUser(parseInt(userId))
+      await followsService.unfollowUser(userId)
     } catch (error) {
       console.error('Failed to unfollow user:', error)
       // Rollback on error
