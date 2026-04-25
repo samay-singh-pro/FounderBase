@@ -48,6 +48,15 @@ export interface Conversation {
   last_message: string | null
   last_message_time: string | null
   unread_count: number
+  is_muted?: boolean
+  is_blocked?: boolean
+  is_blocked_by_me?: boolean
+  is_blocked_by_them?: boolean
+}
+
+export interface Reaction {
+  emoji: string
+  count: number
 }
 
 export interface Message {
@@ -56,7 +65,10 @@ export interface Message {
   sender_id: string
   content: string
   is_read: boolean
+  is_pinned: boolean
+  is_deleted: boolean
   created_at: string
+  reactions?: Reaction[]
 }
 
 export const messageApi = {
@@ -112,6 +124,49 @@ export const messageApi = {
     const response = await api.get(`/api/v1/messages/${conversationId}`, {
       params: { limit, offset },
     })
+    return response.data
+  },
+
+  deleteConversation: async (conversationId: string): Promise<void> => {
+    await api.delete(`/api/v1/messages/conversations/${conversationId}`)
+  },
+
+  togglePinMessage: async (messageId: string): Promise<{ message_id: string; is_pinned: boolean; message: string }> => {
+    const response = await api.patch(`/api/v1/messages/${messageId}/pin`)
+    return response.data
+  },
+
+  deleteMessage: async (messageId: string): Promise<void> => {
+    await api.delete(`/api/v1/messages/${messageId}`)
+  },
+
+  addReaction: async (messageId: string, emoji: string): Promise<{ message: string; added: boolean }> => {
+    const response = await api.post(`/api/v1/messages/${messageId}/reactions`, { emoji })
+    return response.data
+  },
+
+  getReactions: async (messageId: string): Promise<Reaction[]> => {
+    const response = await api.get(`/api/v1/messages/${messageId}/reactions`)
+    return response.data
+  },
+
+  blockUser: async (userId: string): Promise<{ blocked: boolean; blocked_user_id: string; message: string }> => {
+    const response = await api.post(`/api/v1/messages/users/${userId}/block`)
+    return response.data
+  },
+
+  unblockUser: async (userId: string): Promise<{ blocked: boolean; blocked_user_id: string; message: string }> => {
+    const response = await api.delete(`/api/v1/messages/users/${userId}/block`)
+    return response.data
+  },
+
+  muteConversation: async (conversationId: string): Promise<{ muted: boolean; conversation_id: string; message: string }> => {
+    const response = await api.post(`/api/v1/messages/conversations/${conversationId}/mute`)
+    return response.data
+  },
+
+  unmuteConversation: async (conversationId: string): Promise<{ muted: boolean; conversation_id: string; message: string }> => {
+    const response = await api.delete(`/api/v1/messages/conversations/${conversationId}/mute`)
     return response.data
   },
 }

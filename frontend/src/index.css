@@ -67,3 +67,18 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Message highlight animation */
+@keyframes highlight-pulse {
+  0%, 100% {
+    background-color: transparent;
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.15);
+  }
+}
+
+.highlight-message {
+  animation: highlight-pulse 1s ease-in-out 2;
+  border-radius: 0.5rem;
+}

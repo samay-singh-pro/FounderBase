@@ -21,6 +21,18 @@ interface ChatInfoProps {
   userId: string
   isOnline: boolean
   lastSeen?: string
+  pinnedMessages?: Array<{
+    id: string
+    content: string
+    timestamp: string
+  }>
+  onScrollToMessage?: (messageId: string) => void
+  isMuted?: boolean
+  onMuteConversation?: () => void
+  isBlocked?: boolean
+  isBlockedByMe?: boolean
+  isBlockedByThem?: boolean
+  onBlockUser?: () => void
 }
 
 interface UserProfile {
@@ -38,11 +50,10 @@ interface MutualConnection {
   username: string
 }
 
-export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps) {
+export function ChatInfo({ username, userId, isOnline, lastSeen, pinnedMessages = [], onScrollToMessage, isMuted = false, onMuteConversation, isBlocked = false, isBlockedByMe = false, isBlockedByThem = false, onBlockUser }: ChatInfoProps) {
   const navigate = useNavigate()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [mutualConnections, setMutualConnections] = useState<MutualConnection[]>([])
-  const [isMuted, setIsMuted] = useState(false)
   const avatarColor = getAvatarColor(username)
 
   useEffect(() => {
@@ -70,11 +81,6 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
   const formatJoinDate = (dateStr: string) => {
     const date = new Date(dateStr)
     return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })
-  }
-
-  const toggleMute = () => {
-    setIsMuted(!isMuted)
-    // TODO: Implement actual mute API call
   }
 
   return (
@@ -105,6 +111,16 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
             {isOnline ? '🟢 Active now' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline'}
           </p>
 
+          {/* Blocked Status Indicator - Only show if YOU blocked them */}
+          {isBlockedByMe && (
+            <div className="mb-3 px-3 py-1.5 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-full">
+              <p className="text-xs font-medium text-red-600 dark:text-red-400 flex items-center gap-1">
+                <Ban className="h-3 w-3" />
+                Blocked
+              </p>
+            </div>
+          )}
+
           {profile?.bio && (
             <p className="text-sm text-slate-600 dark:text-slate-400 mb-4">
               {profile.bio}
@@ -122,8 +138,8 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
           </Button>
         </div>
 
-        {/* Stats Section */}
-        {profile && (
+        {/* Stats Section - Only show if at least one field has content */}
+        {profile && (profile.location || profile.website || profile.created_at) && (
           <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2">
             {profile.location && (
               <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
@@ -237,13 +253,37 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
                 Pinned Messages
               </h4>
             </div>
+            {pinnedMessages.length > 0 && (
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                {pinnedMessages.length}
+              </span>
+            )}
           </div>
-          <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-center">
-            <Pin className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
-            <p className="text-xs text-slate-500 dark:text-slate-400">
-              No pinned messages
-            </p>
-          </div>
+          {pinnedMessages.length > 0 ? (
+            <div className="space-y-2">
+              {pinnedMessages.map((msg) => (
+                <div 
+                  key={msg.id}
+                  onClick={() => onScrollToMessage?.(msg.id)}
+                  className="p-3 bg-slate-50 dark:bg-slate-800/50 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer"
+                >
+                  <p className="text-sm text-slate-900 dark:text-slate-100 line-clamp-2 mb-1">
+                    {msg.content}
+                  </p>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {new Date(msg.timestamp).toLocaleDateString()}
+                  </p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="p-8 bg-slate-50 dark:bg-slate-800/50 rounded-lg text-center">
+              <Pin className="h-8 w-8 text-slate-300 dark:text-slate-600 mx-auto mb-2" />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                No pinned messages
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Privacy & Support Section */}
@@ -257,7 +297,8 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
               variant="ghost"
               size="sm"
               className="w-full justify-start text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
-              onClick={toggleMute}
+              onClick={onMuteConversation}
+              disabled={!onMuteConversation}
             >
               {isMuted ? (
                 <>
@@ -285,9 +326,11 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
               variant="ghost"
               size="sm"
               className="w-full justify-start text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+              onClick={onBlockUser}
+              disabled={!onBlockUser}
             >
               <Ban className="h-4 w-4 mr-2" />
-              Block User
+              {isBlockedByMe ? 'Unblock User' : 'Block User'}
             </Button>
           </div>
         </div>

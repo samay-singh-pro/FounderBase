@@ -126,6 +126,8 @@ class MessageService:
         Returns:
             Dictionary with conversation data and metadata
         """
+        from app.features.messages.models import MutedConversation, BlockedUser
+        
         # Determine the other user
         other_user_id = conv.user2_id if conv.user1_id == current_user_id else conv.user1_id
         other_user = db.query(User).filter(User.id == other_user_id).first()
@@ -142,6 +144,24 @@ class MessageService:
             Message.is_read == False
         ).count()
         
+        # Check if conversation is muted for current user
+        is_muted = db.query(MutedConversation).filter(
+            MutedConversation.user_id == current_user_id,
+            MutedConversation.conversation_id == conv.id
+        ).first() is not None
+        
+        # Check if either user has blocked the other
+        block_record = db.query(BlockedUser).filter(
+            or_(
+                and_(BlockedUser.blocker_id == current_user_id, BlockedUser.blocked_id == other_user_id),
+                and_(BlockedUser.blocker_id == other_user_id, BlockedUser.blocked_id == current_user_id)
+            )
+        ).first()
+        
+        is_blocked = block_record is not None
+        is_blocked_by_me = block_record is not None and block_record.blocker_id == current_user_id
+        is_blocked_by_them = block_record is not None and block_record.blocked_id == current_user_id
+        
         return {
             "id": conv.id,
             "user1_id": conv.user1_id,
@@ -154,7 +174,11 @@ class MessageService:
             "other_user_username": other_user.username if other_user else "Unknown",
             "last_message": last_message.content if last_message else None,
             "last_message_time": last_message.created_at if last_message else None,
-            "unread_count": unread_count
+            "unread_count": unread_count,
+            "is_muted": is_muted,
+            "is_blocked": is_blocked,
+            "is_blocked_by_me": is_blocked_by_me,
+            "is_blocked_by_them": is_blocked_by_them
         }
 
     @staticmethod
@@ -343,6 +367,8 @@ class MessageService:
         Returns:
             Created message object
         """
+        from app.features.messages.models import BlockedUser
+        
         # Get conversation
         conversation = db.query(Conversation).filter(
             Conversation.id == message_data.conversation_id
@@ -360,6 +386,29 @@ class MessageService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Not authorized to send messages in this conversation"
             )
+        
+        # Determine the other user in the conversation
+        other_user_id = conversation.user2_id if conversation.user1_id == current_user_id else conversation.user1_id
+        
+        # Check if either user has blocked the other
+        block_exists = db.query(BlockedUser).filter(
+            or_(
+                and_(BlockedUser.blocker_id == current_user_id, BlockedUser.blocked_id == other_user_id),
+                and_(BlockedUser.blocker_id == other_user_id, BlockedUser.blocked_id == current_user_id)
+            )
+        ).first()
+        
+        if block_exists:
+            if block_exists.blocker_id == current_user_id:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You have blocked this user. Unblock them to send messages."
+                )
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="You cannot send messages to this user."
+                )
         
         # Don't allow sending messages in declined conversations
         if conversation.status == ConversationStatus.DECLINED:
@@ -404,6 +453,9 @@ class MessageService:
         db.add(new_message)
         db.commit()
         db.refresh(new_message)
+        
+        # Initialize empty reactions list for new message
+        new_message._reaction_counts = []
         
         return new_message
 
@@ -451,6 +503,19 @@ class MessageService:
             Message.conversation_id == conversation_id
         ).order_by(Message.created_at.asc()).offset(offset).limit(limit).all()
         
+        # Add grouped reactions to each message as a transient attribute
+        from app.features.messages.models import MessageReaction
+        for message in messages:
+            reactions = db.query(
+                MessageReaction.emoji,
+                func.count(MessageReaction.id).label('count')
+            ).filter(
+                MessageReaction.message_id == message.id
+            ).group_by(MessageReaction.emoji).all()
+            
+            # Attach as a plain Python attribute (not the SQLAlchemy relationship)
+            message._reaction_counts = [{"emoji": r.emoji, "count": r.count} for r in reactions]
+        
         return messages
 
     @staticmethod
@@ -486,6 +551,17 @@ class MessageService:
         db.commit()
         db.refresh(message)
         
+        # Add grouped reactions
+        from app.features.messages.models import MessageReaction
+        reactions = db.query(
+            MessageReaction.emoji,
+            func.count(MessageReaction.id).label('count')
+        ).filter(
+            MessageReaction.message_id == message.id
+        ).group_by(MessageReaction.emoji).all()
+        
+        message._reaction_counts = [{"emoji": r.emoji, "count": r.count} for r in reactions]
+        
         return message
 
     @staticmethod
@@ -518,3 +594,196 @@ class MessageService:
         db.commit()
         
         return updated_count
+
+    @staticmethod
+    def block_user(db: Session, blocker_id: str, blocked_id: str) -> dict:
+        """
+        Block a user. This prevents them from sending messages.
+        
+        Args:
+            db: Database session
+            blocker_id: ID of the user doing the blocking
+            blocked_id: ID of the user being blocked
+            
+        Returns:
+            Dictionary with block status
+        """
+        from app.features.messages.models import BlockedUser
+        
+        # Can't block yourself
+        if blocker_id == blocked_id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot block yourself"
+            )
+        
+        # Check if user exists
+        blocked_user = db.query(User).filter(User.id == blocked_id).first()
+        if not blocked_user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found"
+            )
+        
+        # Check if already blocked
+        existing_block = db.query(BlockedUser).filter(
+            BlockedUser.blocker_id == blocker_id,
+            BlockedUser.blocked_id == blocked_id
+        ).first()
+        
+        if existing_block:
+            # Already blocked, return status
+            return {
+                "blocked": True,
+                "blocked_user_id": blocked_id,
+                "message": f"User {blocked_user.username} is already blocked"
+            }
+        
+        # Create block record
+        new_block = BlockedUser(
+            blocker_id=blocker_id,
+            blocked_id=blocked_id
+        )
+        db.add(new_block)
+        db.commit()
+        
+        return {
+            "blocked": True,
+            "blocked_user_id": blocked_id,
+            "message": f"User {blocked_user.username} has been blocked"
+        }
+
+    @staticmethod
+    def unblock_user(db: Session, blocker_id: str, blocked_id: str) -> dict:
+        """
+        Unblock a user.
+        
+        Args:
+            db: Database session
+            blocker_id: ID of the user doing the unblocking
+            blocked_id: ID of the user being unblocked
+            
+        Returns:
+            Dictionary with unblock status
+        """
+        from app.features.messages.models import BlockedUser
+        
+        # Find and delete the block record
+        block_record = db.query(BlockedUser).filter(
+            BlockedUser.blocker_id == blocker_id,
+            BlockedUser.blocked_id == blocked_id
+        ).first()
+        
+        if not block_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User is not blocked"
+            )
+        
+        db.delete(block_record)
+        db.commit()
+        
+        blocked_user = db.query(User).filter(User.id == blocked_id).first()
+        username = blocked_user.username if blocked_user else "User"
+        
+        return {
+            "blocked": False,
+            "blocked_user_id": blocked_id,
+            "message": f"User {username} has been unblocked"
+        }
+
+    @staticmethod
+    def mute_conversation(db: Session, user_id: str, conversation_id: str) -> dict:
+        """
+        Mute a conversation to stop receiving notifications.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user muting the conversation
+            conversation_id: ID of the conversation to mute
+            
+        Returns:
+            Dictionary with mute status
+        """
+        from app.features.messages.models import MutedConversation
+        
+        # Check if conversation exists
+        conversation = db.query(Conversation).filter(
+            Conversation.id == conversation_id
+        ).first()
+        
+        if not conversation:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation not found"
+            )
+        
+        # Check if user is part of conversation
+        if conversation.user1_id != user_id and conversation.user2_id != user_id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to mute this conversation"
+            )
+        
+        # Check if already muted
+        existing_mute = db.query(MutedConversation).filter(
+            MutedConversation.user_id == user_id,
+            MutedConversation.conversation_id == conversation_id
+        ).first()
+        
+        if existing_mute:
+            return {
+                "muted": True,
+                "conversation_id": conversation_id,
+                "message": "Conversation is already muted"
+            }
+        
+        # Create mute record
+        new_mute = MutedConversation(
+            user_id=user_id,
+            conversation_id=conversation_id
+        )
+        db.add(new_mute)
+        db.commit()
+        
+        return {
+            "muted": True,
+            "conversation_id": conversation_id,
+            "message": "Conversation muted successfully"
+        }
+
+    @staticmethod
+    def unmute_conversation(db: Session, user_id: str, conversation_id: str) -> dict:
+        """
+        Unmute a conversation to resume receiving notifications.
+        
+        Args:
+            db: Database session
+            user_id: ID of the user unmuting the conversation
+            conversation_id: ID of the conversation to unmute
+            
+        Returns:
+            Dictionary with unmute status
+        """
+        from app.features.messages.models import MutedConversation
+        
+        # Find and delete the mute record
+        mute_record = db.query(MutedConversation).filter(
+            MutedConversation.user_id == user_id,
+            MutedConversation.conversation_id == conversation_id
+        ).first()
+        
+        if not mute_record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Conversation is not muted"
+            )
+        
+        db.delete(mute_record)
+        db.commit()
+        
+        return {
+            "muted": False,
+            "conversation_id": conversation_id,
+            "message": "Conversation unmuted successfully"
+        }

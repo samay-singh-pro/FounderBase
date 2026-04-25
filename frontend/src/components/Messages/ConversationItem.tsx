@@ -1,5 +1,6 @@
 import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
 import { formatDate } from '@/utils/date'
+import { BellOff } from 'lucide-react'
 
 interface ConversationItemProps {
   id: string
@@ -10,6 +11,7 @@ interface ConversationItemProps {
   isActive: boolean
   isOnline?: boolean
   status?: 'pending' | 'accepted' | 'declined'
+  isMuted?: boolean
   onClick: () => void
 }
 
@@ -21,6 +23,7 @@ export function ConversationItem({
   isActive,
   isOnline = false,
   status,
+  isMuted = false,
   onClick,
 }: ConversationItemProps) {
   const avatarColor = getAvatarColor(username)
@@ -51,6 +54,9 @@ export function ConversationItem({
             }`}>
               {username}
             </span>
+            {isMuted && (
+              <BellOff className="flex-shrink-0 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" title="Muted" />
+            )}
             {status === 'pending' && (
               <span className="flex-shrink-0 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full font-medium">
                 Pending

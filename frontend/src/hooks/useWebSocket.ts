@@ -110,7 +110,11 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
         clearTimeout(reconnectTimeoutRef.current)
       }
       if (wsRef.current) {
-        wsRef.current.close()
+        // Only close if the connection is open or connecting
+        if (wsRef.current.readyState === WebSocket.OPEN || wsRef.current.readyState === WebSocket.CONNECTING) {
+          wsRef.current.close()
+        }
+        wsRef.current = null
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

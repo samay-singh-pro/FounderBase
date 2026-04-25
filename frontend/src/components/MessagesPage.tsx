@@ -1,9 +1,11 @@
-import { useState, useEffect, useRef } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { ConversationList } from './Messages/ConversationList'
 import { ChatThread } from './Messages/ChatThread'
 import { ChatInfo } from './Messages/ChatInfo'
 import { NewChatModal } from './Messages/NewChatModal'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogBody, DialogFooter } from './ui/dialog'
+import { Button } from './ui/button'
 import { MessageSquare } from 'lucide-react'
 import { Spinner } from './ui/spinner'
 import { messageApi } from '@/lib/api'
@@ -23,6 +25,10 @@ interface ConversationListItem {
   status?: 'pending' | 'accepted' | 'declined'
   createdById?: string
   otherUserId: string // Store the actual user ID for online status lookups
+  isMuted?: boolean
+  isBlocked?: boolean
+  isBlockedByMe?: boolean
+  isBlockedByThem?: boolean
 }
 
 interface ChatMessage {
@@ -32,6 +38,9 @@ interface ChatMessage {
   isSent: boolean
   isDelivered: boolean
   isRead: boolean
+  isPinned?: boolean
+  isDeleted?: boolean
+  reactions?: Array<{ emoji: string; count: number }>
 }
 
 interface Follower {
@@ -42,6 +51,7 @@ interface Follower {
 
 export default function MessagesPage() {
   const currentUser = useAuthStore((state) => state.user)
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [conversations, setConversations] = useState<ConversationListItem[]>([])
   const [requests, setRequests] = useState<ConversationListItem[]>([])
@@ -52,14 +62,24 @@ export default function MessagesPage() {
   const [loading, setLoading] = useState(true)
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [pendingRecipient, setPendingRecipient] = useState<{userId: string, username: string} | null>(null)
+  const scrollToMessageFnRef = useRef<((messageId: string) => void) | null>(null)
+  const activeConversationIdRef = useRef<string | null>(null)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showBlockDialog, setShowBlockDialog] = useState(false)
 
   const initDone = useRef(false)
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    activeConversationIdRef.current = activeConversationId
+  }, [activeConversationId])
 
   // WebSocket connection
   const { isConnected, sendMessage: wsSendMessage, connectionError } = useWebSocket({
     onMessage: (message) => {
       if (message.type === 'message') {
         const conversationId = message.conversation_id
+        const isMessageFromOther = message.sender_id !== currentUser?.id
 
         const newMessage: ChatMessage = {
           id: message.id,
@@ -68,6 +88,9 @@ export default function MessagesPage() {
           isSent: message.sender_id === currentUser?.id,
           isDelivered: true,
           isRead: message.is_read,
+          isPinned: message.is_pinned || false,
+          isDeleted: message.is_deleted || false,
+          reactions: message.reactions || [],
         }
 
         setConversationMessages(prev => ({
@@ -75,12 +98,32 @@ export default function MessagesPage() {
           [conversationId]: [...(prev[conversationId] || []), newMessage],
         }))
 
-        // Update last message in conversation list without full refresh
-        setConversations(prev => prev.map(conv =>
-          conv.id === conversationId
-            ? { ...conv, lastMessage: message.content, timestamp: message.created_at }
-            : conv
-        ))
+        // Update last message in conversation list
+        setConversations(prev => prev.map(conv => {
+          if (conv.id === conversationId) {
+            // If conversation is active and message is from other user, keep unread count at 0
+            // Otherwise increment it
+            const isConversationActive = conversationId === activeConversationIdRef.current
+            const newUnreadCount = (isConversationActive && isMessageFromOther) 
+              ? 0 
+              : (isMessageFromOther ? conv.unreadCount + 1 : conv.unreadCount)
+            
+            return { 
+              ...conv, 
+              lastMessage: message.content, 
+              timestamp: message.created_at,
+              unreadCount: newUnreadCount
+            }
+          }
+          return conv
+        }))
+
+        // Mark message as read if this conversation is currently active and it's from the other user
+        if (conversationId === activeConversationIdRef.current && isMessageFromOther) {
+          api.post(`/api/v1/messages/conversations/${conversationId}/mark-read`).catch(err => {
+            console.error('Failed to mark message as read:', err)
+          })
+        }
       } else if (message.type === 'online_status') {
         const userId = message.user_id
         const isOnline = message.is_online
@@ -188,6 +231,10 @@ export default function MessagesPage() {
         status: conv.status,
         createdById: conv.created_by_id,
         otherUserId: otherUserId,
+        isMuted: conv.is_muted || false,
+        isBlocked: conv.is_blocked || false,
+        isBlockedByMe: conv.is_blocked_by_me || false,
+        isBlockedByThem: conv.is_blocked_by_them || false,
       }
     })
 
@@ -266,18 +313,41 @@ export default function MessagesPage() {
         isSent: msg.sender_id === currentUser?.id,
         isDelivered: true,
         isRead: msg.is_read,
+        isPinned: msg.is_pinned,
+        isDeleted: msg.is_deleted,
+        reactions: msg.reactions || [],
       }))
 
       setConversationMessages(prev => ({
         ...prev,
         [conversationId]: transformed,
       }))
+
+      // Mark all messages in this conversation as read
+      try {
+        await api.post(`/api/v1/messages/conversations/${conversationId}/mark-read`)
+        
+        // Update unread count in conversation list to 0
+        setConversations(prev => prev.map(conv => 
+          conv.id === conversationId ? { ...conv, unreadCount: 0 } : conv
+        ))
+        setRequests(prev => prev.map(req => 
+          req.id === conversationId ? { ...req, unreadCount: 0 } : req
+        ))
+      } catch (error) {
+        console.error('Failed to mark messages as read:', error)
+      }
     } catch {
       // Silent fail
     } finally {
       setLoadingMessages(false)
     }
   }
+
+  // Callback to receive scroll-to-message function from ChatThread
+  const handleScrollToMessageCallback = useCallback((fn: (messageId: string) => void) => {
+    scrollToMessageFnRef.current = fn
+  }, [])
 
   const handleSendMessage = async (message: string) => {
     if (!activeConversationId || !message.trim() || !isConnected) return
@@ -365,6 +435,205 @@ export default function MessagesPage() {
     }
   }
 
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!activeConversationId) return
+
+    try {
+      await messageApi.deleteMessage(messageId)
+
+      // Update the message in local state
+      setConversationMessages(prev => ({
+        ...prev,
+        [activeConversationId]: prev[activeConversationId].map(msg =>
+          msg.id === messageId
+            ? { ...msg, isDeleted: true, content: 'This message was deleted' }
+            : msg
+        ),
+      }))
+
+      useToastStore.getState().success('Message deleted')
+    } catch (error: any) {
+      useToastStore.getState().error(error.response?.data?.detail || 'Failed to delete message')
+    }
+  }
+
+  const handlePinMessage = async (messageId: string) => {
+    if (!activeConversationId) return
+
+    try {
+      const result = await messageApi.togglePinMessage(messageId)
+
+      // Update the message in local state
+      setConversationMessages(prev => ({
+        ...prev,
+        [activeConversationId]: prev[activeConversationId].map(msg =>
+          msg.id === messageId
+            ? { ...msg, isPinned: result.is_pinned }
+            : msg
+        ),
+      }))
+
+      useToastStore.getState().success(result.is_pinned ? 'Message pinned' : 'Message unpinned')
+    } catch (error: any) {
+      useToastStore.getState().error(error.response?.data?.detail || 'Failed to pin message')
+    }
+  }
+
+  const handleReactToMessage = async (messageId: string, emoji: string) => {
+    if (!activeConversationId) return
+
+    try {
+      await messageApi.addReaction(messageId, emoji)
+
+      // Fetch updated reactions for this message
+      const reactions = await messageApi.getReactions(messageId)
+
+      // Update the message reactions in local state
+      setConversationMessages(prev => ({
+        ...prev,
+        [activeConversationId]: prev[activeConversationId].map(msg =>
+          msg.id === messageId
+            ? { ...msg, reactions }
+            : msg
+        ),
+      }))
+    } catch (error: any) {
+      useToastStore.getState().error(error.response?.data?.detail || 'Failed to add reaction')
+    }
+  }
+
+  const handleDeleteConversation = () => {
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDeleteConversation = async () => {
+    if (!activeConversationId) return
+
+    try {
+      await messageApi.deleteConversation(activeConversationId)
+
+      // Remove from local state
+      setConversations(prev => prev.filter(conv => conv.id !== activeConversationId))
+      setRequests(prev => prev.filter(req => req.id !== activeConversationId))
+      setConversationMessages(prev => {
+        const newMessages = { ...prev }
+        delete newMessages[activeConversationId]
+        return newMessages
+      })
+
+      setActiveConversationId(null)
+      setShowDeleteDialog(false)
+      useToastStore.getState().success('Conversation deleted')
+    } catch (error: any) {
+      setShowDeleteDialog(false)
+      useToastStore.getState().error(error.response?.data?.detail || 'Failed to delete conversation')
+    }
+  }
+
+  const handleMuteConversation = async () => {
+    if (!activeConversationId) return
+
+    const activeConv = conversations.find(c => c.id === activeConversationId) || 
+                       requests.find(r => r.id === activeConversationId)
+    
+    if (!activeConv) return
+
+    const isMuted = activeConv.isMuted || false
+
+    try {
+      let result
+      if (isMuted) {
+        // Unmute the conversation
+        result = await messageApi.unmuteConversation(activeConversationId)
+      } else {
+        // Mute the conversation
+        result = await messageApi.muteConversation(activeConversationId)
+      }
+
+      // Update local state
+      setConversations(prev => prev.map(conv =>
+        conv.id === activeConversationId
+          ? { ...conv, isMuted: !isMuted }
+          : conv
+      ))
+      setRequests(prev => prev.map(req =>
+        req.id === activeConversationId
+          ? { ...req, isMuted: !isMuted }
+          : req
+      ))
+
+      useToastStore.getState().success(result.message)
+    } catch (error: any) {
+      useToastStore.getState().error(error.response?.data?.detail || `Failed to ${isMuted ? 'unmute' : 'mute'} conversation`)
+    }
+  }
+
+  const handleBlockUser = () => {
+    setShowBlockDialog(true)
+  }
+
+  const confirmBlockUser = async () => {
+    if (!activeConversationId) return
+
+    const activeConv = conversations.find(c => c.id === activeConversationId) || 
+                       requests.find(r => r.id === activeConversationId)
+    
+    if (!activeConv) return
+
+    const isCurrentlyBlocked = activeConv.isBlockedByMe || false
+
+    try {
+      let result
+      if (isCurrentlyBlocked) {
+        // Unblock the user
+        result = await messageApi.unblockUser(activeConv.otherUserId)
+        
+        // Update local state - remove blocked status
+        setConversations(prev => prev.map(conv =>
+          conv.id === activeConversationId
+            ? { ...conv, isBlocked: false, isBlockedByMe: false, isBlockedByThem: false }
+            : conv
+        ))
+        setRequests(prev => prev.map(req =>
+          req.id === activeConversationId
+            ? { ...req, isBlocked: false, isBlockedByMe: false, isBlockedByThem: false }
+            : req
+        ))
+      } else {
+        // Block the user
+        result = await messageApi.blockUser(activeConv.otherUserId)
+        
+        // Update local state - mark as blocked
+        setConversations(prev => prev.map(conv =>
+          conv.id === activeConversationId
+            ? { ...conv, isBlocked: true, isBlockedByMe: true, isBlockedByThem: false }
+            : conv
+        ))
+        setRequests(prev => prev.map(req =>
+          req.id === activeConversationId
+            ? { ...req, isBlocked: true, isBlockedByMe: true, isBlockedByThem: false }
+            : req
+        ))
+      }
+
+      setShowBlockDialog(false)
+      useToastStore.getState().success(result.message)
+      // Don't navigate away - stay in the conversation
+    } catch (error: any) {
+      setShowBlockDialog(false)
+      useToastStore.getState().error(error.response?.data?.detail || `Failed to ${isCurrentlyBlocked ? 'unblock' : 'block'} user`)
+    }
+  }
+
+  const handleViewProfile = () => {
+    const activeConv = conversations.find(c => c.id === activeConversationId) || 
+                       requests.find(r => r.id === activeConversationId)
+    
+    if (activeConv) {
+      navigate(`/user/${activeConv.username}`)
+    }
+  }
+
   // Load followers when modal opens
   useEffect(() => {
     if (showNewChatModal) {
@@ -440,6 +709,18 @@ export default function MessagesPage() {
                 onAcceptRequest={handleAcceptRequest}
                 onDeclineRequest={handleDeclineRequest}
                 isLoadingMessages={loadingMessages}
+                onDeleteMessage={handleDeleteMessage}
+                onPinMessage={handlePinMessage}
+                onReactToMessage={handleReactToMessage}
+                onDeleteConversation={handleDeleteConversation}
+                onMuteConversation={handleMuteConversation}
+                onBlockUser={handleBlockUser}
+                onViewProfile={handleViewProfile}
+                onScrollToMessage={handleScrollToMessageCallback}
+                isMuted={activeConversation.isMuted}
+                isBlocked={activeConversation.isBlocked}
+                isBlockedByMe={activeConversation.isBlockedByMe}
+                isBlockedByThem={activeConversation.isBlockedByThem}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800">
@@ -462,6 +743,20 @@ export default function MessagesPage() {
                 userId={activeConversation.otherUserId}
                 isOnline={activeConversation.isOnline}
                 lastSeen={activeConversation.lastSeen}
+                pinnedMessages={(conversationMessages[activeConversationId] || [])
+                  .filter(m => m.isPinned && !m.isDeleted)
+                  .map(m => ({
+                    id: m.id,
+                    content: m.content,
+                    timestamp: m.timestamp
+                  }))}
+                onScrollToMessage={scrollToMessageFnRef.current || undefined}
+                isMuted={activeConversation.isMuted}
+                onMuteConversation={handleMuteConversation}
+                isBlocked={activeConversation.isBlocked}
+                isBlockedByMe={activeConversation.isBlockedByMe}
+                isBlockedByThem={activeConversation.isBlockedByThem}
+                onBlockUser={handleBlockUser}
               />
             </div>
           )}
@@ -478,6 +773,64 @@ export default function MessagesPage() {
         followers={followers}
         preselectedUser={pendingRecipient}
       />
+
+      {/* Delete Conversation Confirmation Dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader onClose={() => setShowDeleteDialog(false)}>
+            <DialogTitle>Delete Conversation</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this conversation? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteConversation}
+            >
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Block/Unblock User Confirmation Dialog */}
+      <Dialog open={showBlockDialog} onOpenChange={setShowBlockDialog}>
+        <DialogContent>
+          <DialogHeader onClose={() => setShowBlockDialog(false)}>
+            <DialogTitle>
+              {activeConversation?.isBlockedByMe ? 'Unblock User' : 'Block User'}
+            </DialogTitle>
+            <DialogDescription>
+              {activeConversation?.isBlockedByMe ? (
+                `Are you sure you want to unblock ${activeConversation.username}? You will be able to receive messages from this user again.`
+              ) : (
+                `Are you sure you want to block ${activeConversation?.username}? You will no longer receive messages from this user.`
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowBlockDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmBlockUser}
+            >
+              {activeConversation?.isBlockedByMe ? 'Unblock' : 'Block'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

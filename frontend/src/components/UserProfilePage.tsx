@@ -6,7 +6,7 @@ import OpportunityCard from './OpportunityCard'
 import { Card, CardContent, CardHeader } from './ui/card'
 import { Button } from './ui/button'
 import { Spinner } from './ui/spinner'
-import { User, FileText, Users, MapPin, Globe, Calendar, MessageSquare, UserPlus, UserMinus } from 'lucide-react'
+import { User, FileText, Users, MapPin, Globe, Calendar, MessageSquare, UserPlus, UserMinus, ShieldX } from 'lucide-react'
 import { useToastStore } from '@/store/toastStore'
 import api from '@/lib/api'
 
@@ -44,6 +44,8 @@ export default function UserProfilePage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
   const [isCheckingFollow, setIsCheckingFollow] = useState(true)
+  const [isBlocked, setIsBlocked] = useState(false)
+  const [blockInfo, setBlockInfo] = useState({ blocked_by_me: false, blocked_by_them: false })
 
   useEffect(() => {
     if (username) {
@@ -74,8 +76,22 @@ export default function UserProfilePage() {
 
       setUserPosts(userPostsFiltered)
       
-      // Get user ID from first post
+      // Get userId from first post
       const userId = userPostsFiltered[0].user_id
+      
+      // Check block status first
+      if (currentUser?.id !== userId) {
+        const blockStatusResponse = await api.get(`/api/v1/messages/users/${userId}/block-status`)
+        if (blockStatusResponse.data.is_blocked) {
+          setIsBlocked(true)
+          setBlockInfo({
+            blocked_by_me: blockStatusResponse.data.blocked_by_me,
+            blocked_by_them: blockStatusResponse.data.blocked_by_them
+          })
+          setIsLoading(false)
+          return // Don't load profile data if blocked
+        }
+      }
       
       // Fetch user profile
       const profileResponse = await api.get(`/api/v1/auth/users/${userId}`)
@@ -135,6 +151,27 @@ export default function UserProfilePage() {
     return (
       <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
         <Spinner size="lg" />
+      </div>
+    )
+  }
+
+  if (isBlocked) {
+    return (
+      <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center">
+        <Card className="p-8 max-w-md text-center">
+          <ShieldX className="h-16 w-16 text-red-500 dark:text-red-400 mx-auto mb-4" />
+          <h2 className="text-xl font-bold text-slate-900 dark:text-slate-100 mb-2">
+            {blockInfo.blocked_by_me ? 'User Blocked' : 'Profile Unavailable'}
+          </h2>
+          <p className="text-slate-600 dark:text-slate-400 mb-6">
+            {blockInfo.blocked_by_me 
+              ? `You have blocked @${username}. You cannot view their profile, posts, or interact with them.`
+              : 'This profile is not available.'}
+          </p>
+          <Button onClick={() => navigate('/')} variant="outline">
+            Go Home
+          </Button>
+        </Card>
       </div>
     )
   }

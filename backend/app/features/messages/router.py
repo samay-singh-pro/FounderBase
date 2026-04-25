@@ -14,6 +14,10 @@ from app.features.messages.schemas import (
     ConversationCreate,
     ConversationStart,
     ConversationResponse,
+    ReactionCreate,
+    ReactionResponse,
+    BlockUserResponse,
+    MuteConversationResponse,
 )
 from app.features.messages.service import MessageService
 from app.features.messages.websocket import manager
@@ -82,9 +86,10 @@ def get_online_status(
     """
     Get online status for users in conversations.
     Returns a dict of user_id -> is_online.
+    Excludes blocked users.
     """
-    from app.features.messages.models import Conversation
-    from sqlalchemy import or_
+    from app.features.messages.models import Conversation, BlockedUser
+    from sqlalchemy import or_, and_
     
     # Get all conversations for current user
     conversations = db.query(Conversation).filter(
@@ -100,6 +105,22 @@ def get_online_status(
     for conv in conversations:
         other_user_id = conv.user2_id if conv.user1_id == current_user.id else conv.user1_id
         user_ids.add(other_user_id)
+    
+    # Get blocked user IDs (both directions)
+    blocked_ids = (
+        db.query(BlockedUser.blocked_id)
+        .filter(BlockedUser.blocker_id == current_user.id)
+        .all()
+    )
+    blocker_ids = (
+        db.query(BlockedUser.blocker_id)
+        .filter(BlockedUser.blocked_id == current_user.id)
+        .all()
+    )
+    blocked_user_ids = {str(user_id[0]) for user_id in blocked_ids} | {str(user_id[0]) for user_id in blocker_ids}
+    
+    # Filter out blocked users
+    user_ids = user_ids - blocked_user_ids
     
     # Check online status and last_seen for each user
     from app.features.auth.models import User
@@ -340,3 +361,284 @@ def mark_conversation_read(
         current_user_id=current_user.id
     )
     return {"message": f"Marked {updated_count} messages as read"}
+
+
+# ============================================================================
+# Message Actions
+# ============================================================================
+
+@router.delete("/conversations/{conversation_id}")
+def delete_conversation(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a conversation (soft delete for current user)."""
+    from app.features.messages.models import Conversation
+    
+    conversation = db.query(Conversation).filter(
+        Conversation.id == conversation_id,
+        or_(
+            Conversation.user1_id == current_user.id,
+            Conversation.user2_id == current_user.id
+        )
+    ).first()
+    
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found"
+        )
+    
+    # For now, hard delete. In production, you might want soft delete
+    db.delete(conversation)
+    db.commit()
+    
+    return {"message": "Conversation deleted successfully"}
+
+
+@router.patch("/{message_id}/pin")
+def toggle_pin_message(
+    message_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Pin or unpin a message."""
+    from app.features.messages.models import Message
+    
+    message = db.query(Message).filter(Message.id == message_id).first()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found"
+        )
+    
+    # Toggle pin status
+    message.is_pinned = not message.is_pinned
+    db.commit()
+    db.refresh(message)
+    
+    return {
+        "message_id": message.id,
+        "is_pinned": message.is_pinned,
+        "message": f"Message {'pinned' if message.is_pinned else 'unpinned'} successfully"
+    }
+
+
+@router.delete("/{message_id}")
+def delete_message(
+    message_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Delete a message (soft delete)."""
+    from app.features.messages.models import Message
+    
+    message = db.query(Message).filter(
+        Message.id == message_id,
+        Message.sender_id == current_user.id
+    ).first()
+    
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found or you don't have permission to delete it"
+        )
+    
+    # Soft delete
+    message.is_deleted = True
+    message.content = "This message was deleted"
+    db.commit()
+    
+    return {"message": "Message deleted successfully"}
+
+
+@router.post("/{message_id}/reactions")
+def add_reaction(
+    message_id: str,
+    reaction_data: ReactionCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Add an emoji reaction to a message."""
+    from app.features.messages.models import Message, MessageReaction
+    import uuid
+    
+    # Verify message exists
+    message = db.query(Message).filter(Message.id == message_id).first()
+    if not message:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Message not found"
+        )
+    
+    # Check if user already reacted with this emoji
+    existing = db.query(MessageReaction).filter(
+        MessageReaction.message_id == message_id,
+        MessageReaction.user_id == current_user.id,
+        MessageReaction.emoji == reaction_data.emoji
+    ).first()
+    
+    if existing:
+        # Remove reaction if it already exists (toggle)
+        db.delete(existing)
+        db.commit()
+        return {"message": "Reaction removed", "added": False}
+    
+    # Add new reaction
+    reaction = MessageReaction(
+        id=str(uuid.uuid4()),
+        message_id=message_id,
+        user_id=current_user.id,
+        emoji=reaction_data.emoji
+    )
+    db.add(reaction)
+    db.commit()
+    
+    return {"message": "Reaction added", "added": True}
+
+
+@router.get("/{message_id}/reactions", response_model=list[ReactionResponse])
+def get_reactions(
+    message_id: str,
+    db: Session = Depends(get_db)
+):
+    """Get all reactions for a message."""
+    from app.features.messages.models import MessageReaction
+    from sqlalchemy import func
+    
+    # Group reactions by emoji and count
+    reactions = db.query(
+        MessageReaction.emoji,
+        func.count(MessageReaction.id).label('count')
+    ).filter(
+        MessageReaction.message_id == message_id
+    ).group_by(MessageReaction.emoji).all()
+    
+    return [{"emoji": r.emoji, "count": r.count} for r in reactions]
+
+
+# ============================================================================
+# Block and Mute Endpoints
+# ============================================================================
+
+@router.post("/users/{user_id}/block", response_model=BlockUserResponse)
+def block_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Block a user to prevent receiving messages from them."""
+    result = MessageService.block_user(
+        db=db,
+        blocker_id=current_user.id,
+        blocked_id=user_id
+    )
+    return result
+
+
+@router.delete("/users/{user_id}/block", response_model=BlockUserResponse)
+def unblock_user(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Unblock a user to allow receiving messages from them again."""
+    result = MessageService.unblock_user(
+        db=db,
+        blocker_id=current_user.id,
+        blocked_id=user_id
+    )
+    return result
+
+
+@router.post("/conversations/{conversation_id}/mute", response_model=MuteConversationResponse)
+def mute_conversation(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Mute a conversation to stop receiving notifications."""
+    result = MessageService.mute_conversation(
+        db=db,
+        user_id=current_user.id,
+        conversation_id=conversation_id
+    )
+    return result
+
+
+@router.delete("/conversations/{conversation_id}/mute", response_model=MuteConversationResponse)
+def unmute_conversation(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Unmute a conversation to resume receiving notifications."""
+    result = MessageService.unmute_conversation(
+        db=db,
+        user_id=current_user.id,
+        conversation_id=conversation_id
+    )
+    return result
+
+
+@router.get("/users/{user_id}/block-status")
+def check_block_status(
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Check if there's a block relationship between current user and specified user."""
+    from app.features.messages.models import BlockedUser
+    from sqlalchemy import or_, and_
+    
+    block_record = db.query(BlockedUser).filter(
+        or_(
+            and_(BlockedUser.blocker_id == current_user.id, BlockedUser.blocked_id == user_id),
+            and_(BlockedUser.blocker_id == user_id, BlockedUser.blocked_id == current_user.id)
+        )
+    ).first()
+    
+    if block_record:
+        return {
+            "is_blocked": True,
+            "blocked_by_me": block_record.blocker_id == current_user.id,
+            "blocked_by_them": block_record.blocked_id == current_user.id
+        }
+    
+    return {
+        "is_blocked": False,
+        "blocked_by_me": False,
+        "blocked_by_them": False
+    }
+
+
+@router.get("/blocked-users")
+def get_blocked_users(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get list of all blocked user IDs (users I blocked + users who blocked me)."""
+    from app.features.messages.models import BlockedUser
+    from sqlalchemy import or_
+    
+    # Get all block records involving current user
+    block_records = db.query(BlockedUser).filter(
+        or_(
+            BlockedUser.blocker_id == current_user.id,
+            BlockedUser.blocked_id == current_user.id
+        )
+    ).all()
+    
+    # Collect all blocked user IDs
+    blocked_user_ids = set()
+    for record in block_records:
+        if record.blocker_id == current_user.id:
+            blocked_user_ids.add(record.blocked_id)
+        else:
+            blocked_user_ids.add(record.blocker_id)
+    
+    return {
+        "blocked_user_ids": list(blocked_user_ids)
+    }

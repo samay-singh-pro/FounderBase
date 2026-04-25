@@ -47,8 +47,54 @@ class Message(Base):
     sender_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     content = Column(Text, nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
+    is_pinned = Column(Boolean, default=False, nullable=False)
+    is_deleted = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
     conversation = relationship("Conversation", back_populates="messages")
     sender = relationship("User")
+    reactions = relationship("MessageReaction", back_populates="message", cascade="all, delete-orphan")
+
+
+class MessageReaction(Base):
+    """Message reaction model for storing emoji reactions to messages."""
+    __tablename__ = "message_reactions"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    message_id = Column(String(36), ForeignKey("messages.id", ondelete="CASCADE"), nullable=False)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    emoji = Column(String(10), nullable=False)  # Emoji character
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    message = relationship("Message", back_populates="reactions")
+    user = relationship("User")
+
+
+class BlockedUser(Base):
+    """Model for tracking blocked users."""
+    __tablename__ = "blocked_users"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    blocker_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    blocked_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    blocker = relationship("User", foreign_keys=[blocker_id])
+    blocked = relationship("User", foreign_keys=[blocked_id])
+
+
+class MutedConversation(Base):
+    """Model for tracking muted conversations."""
+    __tablename__ = "muted_conversations"
+
+    id = Column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()), index=True)
+    user_id = Column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    conversation_id = Column(String(36), ForeignKey("conversations.id", ondelete="CASCADE"), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    user = relationship("User")
+    conversation = relationship("Conversation")

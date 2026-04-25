@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 
 from app.db.connection import get_db
-from app.features.auth.dependencies import get_current_user
+from app.features.auth.dependencies import get_current_user, get_current_user_optional
 from app.features.auth.models import User
 from app.features.follows import service
 from app.features.follows.schemas import (
@@ -146,7 +146,13 @@ def get_followers(
         )
     
     # Get followers
-    followers_data, total = service.get_followers(db, user_id, page, limit)
+    followers_data, total = service.get_followers(
+        db, 
+        user_id, 
+        page, 
+        limit,
+        current_user_id=str(current_user.id)
+    )
     
     # Convert to Pydantic models and check if current user is following them back
     followers = []
@@ -211,6 +217,7 @@ def get_following(
     user_id: str,
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ) -> FollowingListResponse:
     """
@@ -232,7 +239,14 @@ def get_following(
         )
     
     # Get following
-    following_data, total = service.get_following(db, user_id, page, limit)
+    current_user_id = str(current_user.id) if current_user else None
+    following_data, total = service.get_following(
+        db, 
+        user_id, 
+        page, 
+        limit,
+        current_user_id=current_user_id
+    )
     
     # Convert to Pydantic models
     following = [FollowingPublic(**user) for user in following_data]

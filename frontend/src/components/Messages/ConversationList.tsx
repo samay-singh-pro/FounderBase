@@ -12,6 +12,7 @@ interface Conversation {
   unreadCount: number
   isOnline: boolean
   status?: 'pending' | 'accepted' | 'declined'
+  isMuted?: boolean
 }
 
 interface ConversationListProps {

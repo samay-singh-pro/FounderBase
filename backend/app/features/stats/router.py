@@ -7,6 +7,7 @@ from sqlalchemy import func
 from app.db.connection import get_db
 from app.features.opportunities.models import Opportunity
 from app.features.auth.models import User
+from app.features.auth.dependencies import get_current_user_optional
 from app.features.stats.schemas import (
     TrendingCategoriesResponse,
     ActiveUsersResponse,
@@ -60,15 +61,17 @@ def get_trending_categories(
 )
 def get_active_users(
     limit: int = 5,
+    current_user: User | None = Depends(get_current_user_optional),
     db: Session = Depends(get_db),
 ) -> ActiveUsersResponse:
     """
     Get most active users based on number of opportunities posted.
     
     Returns users ordered by contribution count (most active first).
+    Filters out blocked users if authenticated.
     """
     # Query to get users with their opportunity counts
-    results = (
+    query = (
         db.query(
             User.id,
             User.username,
@@ -77,10 +80,23 @@ def get_active_users(
         )
         .join(Opportunity, Opportunity.user_id == User.id)
         .group_by(User.id, User.username, User.email)
-        .order_by(func.count(Opportunity.id).desc())
-        .limit(limit)
-        .all()
     )
+    
+    # Filter out blocked users if current user is authenticated
+    if current_user:
+        from app.features.messages.models import BlockedUser
+        blocked_subquery = (
+            db.query(BlockedUser.blocked_id)
+            .filter(BlockedUser.blocker_id == current_user.id)
+            .union(
+                db.query(BlockedUser.blocker_id)
+                .filter(BlockedUser.blocked_id == current_user.id)
+            )
+            .subquery()
+        )
+        query = query.filter(~User.id.in_(blocked_subquery))
+    
+    results = query.order_by(func.count(Opportunity.id).desc()).limit(limit).all()
     
     users = [
         ActiveUser(

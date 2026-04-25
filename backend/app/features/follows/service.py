@@ -1,6 +1,6 @@
 """Follow business logic"""
 
-from sqlalchemy import func
+from sqlalchemy import func, or_, and_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -110,7 +110,8 @@ def get_followers(
     db: Session,
     user_id: str,
     page: int = 1,
-    limit: int = 20
+    limit: int = 20,
+    current_user_id: str | None = None
 ) -> tuple[list[dict], int]:
     """
     Get list of users following a specific user.
@@ -120,6 +121,7 @@ def get_followers(
         user_id: ID of user whose followers to retrieve
         page: Page number (1-based)
         limit: Number of followers per page
+        current_user_id: ID of current user to filter blocked users (optional)
         
     Returns:
         Tuple of (followers_list, total_count)
@@ -127,13 +129,6 @@ def get_followers(
     """
     # Calculate offset
     offset = (page - 1) * limit
-    
-    # Get total count
-    total = (
-        db.query(func.count(Follow.id))
-        .filter(Follow.followee_id == user_id)
-        .scalar()
-    )
     
     # Get followers with user details
     followers_query = (
@@ -145,10 +140,27 @@ def get_followers(
         )
         .join(Follow, Follow.follower_id == User.id)
         .filter(Follow.followee_id == user_id)
-        .order_by(Follow.created_at.desc())
-        .offset(offset)
-        .limit(limit)
     )
+    
+    # Filter out blocked users if current_user_id is provided
+    if current_user_id:
+        from app.features.messages.models import BlockedUser
+        blocked_subquery = (
+            db.query(BlockedUser.blocked_id)
+            .filter(BlockedUser.blocker_id == current_user_id)
+            .union(
+                db.query(BlockedUser.blocker_id)
+                .filter(BlockedUser.blocked_id == current_user_id)
+            )
+            .subquery()
+        )
+        followers_query = followers_query.filter(~User.id.in_(blocked_subquery))
+    
+    # Get total count
+    total = followers_query.count()
+    
+    # Get paginated results
+    followers_query = followers_query.order_by(Follow.created_at.desc()).offset(offset).limit(limit)
     
     followers = [
         {
@@ -167,7 +179,8 @@ def get_following(
     db: Session,
     user_id: str,
     page: int = 1,
-    limit: int = 20
+    limit: int = 20,
+    current_user_id: str | None = None
 ) -> tuple[list[dict], int]:
     """
     Get list of users that a specific user is following.
@@ -177,6 +190,7 @@ def get_following(
         user_id: ID of user whose following to retrieve
         page: Page number (1-based)
         limit: Number of following per page
+        current_user_id: ID of current user to filter blocked users (optional)
         
     Returns:
         Tuple of (following_list, total_count)
@@ -184,13 +198,6 @@ def get_following(
     """
     # Calculate offset
     offset = (page - 1) * limit
-    
-    # Get total count
-    total = (
-        db.query(func.count(Follow.id))
-        .filter(Follow.follower_id == user_id)
-        .scalar()
-    )
     
     # Get following with user details
     following_query = (
@@ -202,10 +209,27 @@ def get_following(
         )
         .join(Follow, Follow.followee_id == User.id)
         .filter(Follow.follower_id == user_id)
-        .order_by(Follow.created_at.desc())
-        .offset(offset)
-        .limit(limit)
     )
+    
+    # Filter out blocked users if current_user_id is provided
+    if current_user_id:
+        from app.features.messages.models import BlockedUser
+        blocked_subquery = (
+            db.query(BlockedUser.blocked_id)
+            .filter(BlockedUser.blocker_id == current_user_id)
+            .union(
+                db.query(BlockedUser.blocker_id)
+                .filter(BlockedUser.blocked_id == current_user_id)
+            )
+            .subquery()
+        )
+        following_query = following_query.filter(~User.id.in_(blocked_subquery))
+    
+    # Get total count
+    total = following_query.count()
+    
+    # Get paginated results
+    following_query = following_query.order_by(Follow.created_at.desc()).offset(offset).limit(limit)
     
     following = [
         {
@@ -228,7 +252,7 @@ def get_suggested_users(
 ) -> tuple[list[dict], int]:
     """
     Get list of suggested users for a user to follow.
-    Returns users that the current user is NOT following (excluding themselves).
+    Returns users that the current user is NOT following (excluding themselves and blocked users).
     
     Args:
         db: Database session
@@ -250,12 +274,25 @@ def get_suggested_users(
         .subquery()
     )
     
-    # Get users NOT in following list and NOT the current user
+    # Get IDs of blocked users (both directions)
+    from app.features.messages.models import BlockedUser
+    blocked_subquery = (
+        db.query(BlockedUser.blocked_id)
+        .filter(BlockedUser.blocker_id == user_id)
+        .union(
+            db.query(BlockedUser.blocker_id)
+            .filter(BlockedUser.blocked_id == user_id)
+        )
+        .subquery()
+    )
+    
+    # Get users NOT in following list, NOT blocked, and NOT the current user
     suggested_users_query = (
         db.query(User.id, User.username, User.email)
         .filter(
             User.id != user_id,  # Exclude self
-            ~User.id.in_(following_ids_subquery)  # Exclude already following
+            ~User.id.in_(following_ids_subquery),  # Exclude already following
+            ~User.id.in_(blocked_subquery)  # Exclude blocked users
         )
         .order_by(User.username.asc())  # Alphabetically by username
     )

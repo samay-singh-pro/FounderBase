@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy import or_, func, case, literal
+from sqlalchemy import or_, and_, func, case, literal
 from sqlalchemy.orm import Session
 
 from app.features.comments.models import Comment
@@ -357,6 +357,22 @@ def get_opportunities(
             .subquery()
         )
     
+    # Get list of blocked users (in both directions)
+    blocked_user_ids = set()
+    if current_user_id:
+        from app.features.messages.models import BlockedUser
+        blocked_ids = (
+            db.query(BlockedUser.blocked_id)
+            .filter(BlockedUser.blocker_id == current_user_id)
+            .all()
+        )
+        blocker_ids = (
+            db.query(BlockedUser.blocker_id)
+            .filter(BlockedUser.blocked_id == current_user_id)
+            .all()
+        )
+        blocked_user_ids = {str(user_id[0]) for user_id in blocked_ids} | {str(user_id[0]) for user_id in blocker_ids}
+    
     # Get list of users that current user is following (efficient approach)
     # Instead of complex joins, we fetch once and check membership in Python
     following_user_ids = set()
@@ -413,6 +429,10 @@ def get_opportunities(
         )
     
     # Apply filters
+    # Filter out blocked users' posts
+    if current_user_id and blocked_user_ids:
+        query = query.filter(~Opportunity.user_id.in_(blocked_user_ids))
+    
     if user_id:
         query = query.filter(Opportunity.user_id == user_id)
     if category:
