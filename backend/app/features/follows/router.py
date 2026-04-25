@@ -124,6 +124,7 @@ def get_followers(
     user_id: str,
     page: Annotated[int, Query(ge=1)] = 1,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
+    current_user: User = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> FollowersListResponse:
     """
@@ -147,8 +148,12 @@ def get_followers(
     # Get followers
     followers_data, total = service.get_followers(db, user_id, page, limit)
     
-    # Convert to Pydantic models
-    followers = [FollowerPublic(**follower) for follower in followers_data]
+    # Convert to Pydantic models and check if current user is following them back
+    followers = []
+    for follower in followers_data:
+        is_following = service.is_following(db, current_user.id, follower['id'])
+        follower_with_status = {**follower, 'is_following': is_following}
+        followers.append(FollowerPublic(**follower_with_status))
     
     return FollowersListResponse(
         followers=followers,

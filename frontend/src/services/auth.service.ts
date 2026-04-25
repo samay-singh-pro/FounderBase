@@ -18,7 +18,30 @@ export interface AuthResponse {
     id: string
     email: string
     username: string
+    full_name?: string
+    bio?: string
+    location?: string
+    website?: string
+    created_at?: string
   }
+}
+
+export interface UserProfile {
+  id: string
+  email: string
+  username: string
+  full_name?: string
+  bio?: string
+  location?: string
+  website?: string
+  created_at?: string
+}
+
+export interface UserProfileUpdate {
+  full_name?: string
+  bio?: string
+  location?: string
+  website?: string
 }
 
 export interface UserStats {
@@ -54,6 +77,16 @@ export const authService = {
 
   getMyStats: async (): Promise<UserStats> => {
     const response = await api.get<UserStats>('/api/v1/auth/me/stats')
+    return response.data
+  },
+
+  getMyProfile: async (): Promise<UserProfile> => {
+    const response = await api.get<UserProfile>('/api/v1/auth/me')
+    return response.data
+  },
+
+  updateMyProfile: async (updates: UserProfileUpdate): Promise<UserProfile> => {
+    const response = await api.put<UserProfile>('/api/v1/auth/me', updates)
     return response.data
   },
 }

@@ -17,6 +17,7 @@ class FollowerPublic(BaseModel):
     username: str
     email: str
     followed_at: datetime
+    is_following: bool = False
 
 
 class FollowingPublic(BaseModel):
@@ -27,6 +28,7 @@ class FollowingPublic(BaseModel):
     username: str
     email: str
     followed_at: datetime
+    is_following: bool = True
 
 
 class FollowersListResponse(BaseModel):

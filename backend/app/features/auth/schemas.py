@@ -1,6 +1,8 @@
 """Pydantic schemas for auth requests and responses"""
 
 from pydantic import BaseModel, EmailStr, Field
+from typing import Optional
+from datetime import datetime
 
 
 class UserCreate(BaseModel):
@@ -38,6 +40,20 @@ class UserPublic(BaseModel):
     id: str
     email: EmailStr
     username: str
+    full_name: Optional[str] = None
+    bio: Optional[str] = None
+    location: Optional[str] = None
+    website: Optional[str] = None
+    created_at: Optional[datetime] = None
+
+
+class UserUpdate(BaseModel):
+    """Schema for updating user profile"""
+    
+    full_name: Optional[str] = Field(None, max_length=100, description="Full name")
+    bio: Optional[str] = Field(None, max_length=500, description="Bio/About me (max 500 characters)")
+    location: Optional[str] = Field(None, max_length=100, description="Location")
+    website: Optional[str] = Field(None, max_length=255, description="Website URL")
 
 
 class Token(BaseModel):

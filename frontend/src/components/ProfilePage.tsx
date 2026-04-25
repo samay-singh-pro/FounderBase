@@ -3,7 +3,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { opportunitiesService, type Opportunity } from '@/services/opportunities.service'
 import { bookmarksService } from '@/services/bookmarks.service'
-import { authService } from '@/services/auth.service'
+import { authService, type UserProfile } from '@/services/auth.service'
 import { draftsService, type Draft } from '@/services/drafts.service'
 import { likesService } from '@/services/likes.service'
 import OpportunityCard from './OpportunityCard'
@@ -11,8 +11,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Card, CardContent, CardHeader } from './ui/card'
 import { Button } from './ui/button'
 import { Spinner } from './ui/spinner'
-import { User, FileText, Bookmark, Heart, File, Edit, Users } from 'lucide-react'
+import { User, FileText, Bookmark, Heart, File, Edit, Users, MapPin, Globe, Calendar, X } from 'lucide-react'
 import { useToastStore } from '@/store/toastStore'
+import { Input } from './ui/input'
+import { Textarea } from './ui/textarea'
 
 export default function ProfilePage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -25,6 +27,17 @@ export default function ProfilePage() {
   const [likedPosts, setLikedPosts] = useState<Opportunity[]>([])
   const [drafts, setDrafts] = useState<Draft[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [isSaving, setIsSaving] = useState(false)
+  
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  
+  const [editForm, setEditForm] = useState({
+    full_name: '',
+    bio: '',
+    location: '',
+    website: ''
+  })
   
   const [stats, setStats] = useState({
     posts_count: 0,
@@ -35,9 +48,25 @@ export default function ProfilePage() {
   })
 
   useEffect(() => {
+    loadProfile()
     loadData()
     loadStats()
   }, [activeTab])
+
+  const loadProfile = async () => {
+    try {
+      const profileData = await authService.getMyProfile()
+      setProfile(profileData)
+      setEditForm({
+        full_name: profileData.full_name || '',
+        bio: profileData.bio || '',
+        location: profileData.location || '',
+        website: profileData.website || ''
+      })
+    } catch (error) {
+      useToastStore.getState().error('Failed to load profile')
+    }
+  }
 
   const loadStats = async () => {
     try {
@@ -128,6 +157,26 @@ export default function ProfilePage() {
     }
   }
 
+  const handleSaveProfile = async () => {
+    setIsSaving(true)
+    try {
+      const updated = await authService.updateMyProfile(editForm)
+      setProfile(updated)
+      setShowEditModal(false)
+      useToastStore.getState().success('Profile updated successfully')
+    } catch (error) {
+      useToastStore.getState().error('Failed to update profile')
+    } finally {
+      setIsSaving(false)
+    }
+  }
+
+  const formatJoinDate = (dateStr?: string) => {
+    if (!dateStr) return 'Recently'
+    const date = new Date(dateStr)
+    return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-5xl mx-auto px-4 py-8">
@@ -141,17 +190,45 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                    {user?.username}
+                    {profile?.full_name || user?.username}
                   </h1>
                   <p className="text-slate-600 dark:text-slate-400 text-sm">
-                    {user?.email}
+                    @{user?.username}
                   </p>
+                  {profile?.bio && (
+                    <p className="text-slate-700 dark:text-slate-300 text-sm mt-2 max-w-2xl">
+                      {profile.bio}
+                    </p>
+                  )}
+                  <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-600 dark:text-slate-400">
+                    {profile?.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-3.5 w-3.5" />
+                        {profile.location}
+                      </span>
+                    )}
+                    {profile?.website && (
+                      <a 
+                        href={profile.website} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400"
+                      >
+                        <Globe className="h-3.5 w-3.5" />
+                        {profile.website.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <Calendar className="h-3.5 w-3.5" />
+                      Joined {formatJoinDate(profile?.created_at)}
+                    </span>
+                  </div>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => navigate('/settings')}
+                onClick={() => setShowEditModal(true)}
                 className="rounded-full"
               >
                 <Edit className="h-4 w-4 mr-2" />
@@ -375,6 +452,106 @@ export default function ProfilePage() {
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Edit Profile Modal */}
+      {showEditModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-700 max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
+              <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                Edit Profile
+              </h3>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowEditModal(false)}
+                className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 h-8 w-8 p-0"
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Full Name
+                </label>
+                <Input
+                  type="text"
+                  placeholder=""
+                  value={editForm.full_name}
+                  onChange={(e) => setEditForm({ ...editForm, full_name: e.target.value })}
+                  maxLength={100}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Bio
+                </label>
+                <Textarea
+                  placeholder=""
+                  value={editForm.bio}
+                  onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
+                  maxLength={500}
+                  rows={4}
+                  className="w-full resize-none"
+                />
+                <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 text-right">
+                  {editForm.bio.length}/500
+                </p>
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Location
+                </label>
+                <Input
+                  type="text"
+                  placeholder=""
+                  value={editForm.location}
+                  onChange={(e) => setEditForm({ ...editForm, location: e.target.value })}
+                  maxLength={100}
+                  className="w-full"
+                />
+              </div>
+
+              <div>
+                <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
+                  Website
+                </label>
+                <Input
+                  type="url"
+                  placeholder=""
+                  value={editForm.website}
+                  onChange={(e) => setEditForm({ ...editForm, website: e.target.value })}
+                  maxLength={255}
+                  className="w-full"
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3 p-6 border-t border-slate-200 dark:border-slate-800">
+              <Button
+                variant="outline"
+                onClick={() => setShowEditModal(false)}
+                disabled={isSaving}
+                className="flex-1 rounded-full"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSaveProfile}
+                disabled={isSaving}
+                className="flex-1 rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                {isSaving ? 'Saving...' : 'Save Changes'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

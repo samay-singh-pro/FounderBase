@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
 import { 
@@ -13,6 +14,7 @@ import {
   Calendar,
   Users
 } from 'lucide-react'
+import api from '@/lib/api'
 
 interface ChatInfoProps {
   username: string
@@ -22,9 +24,13 @@ interface ChatInfoProps {
 }
 
 interface UserProfile {
+  id: string
   username: string
-  created_at: string
+  full_name?: string
   bio?: string
+  location?: string
+  website?: string
+  created_at?: string
 }
 
 interface MutualConnection {
@@ -33,6 +39,7 @@ interface MutualConnection {
 }
 
 export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps) {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState<UserProfile | null>(null)
   const [mutualConnections, setMutualConnections] = useState<MutualConnection[]>([])
   const [isMuted, setIsMuted] = useState(false)
@@ -44,20 +51,19 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
 
   const loadUserProfile = async () => {
     try {
-      // For now, use mock data - in real app would fetch from API
-      setProfile({
-        username,
-        created_at: '2024-01-15T00:00:00Z',
-        bio: 'Product enthusiast | Building in public'
-      })
+      const response = await api.get(`/api/v1/auth/users/${userId}`)
+      setProfile(response.data)
       
-      // Mock mutual connections
-      setMutualConnections([
-        { id: '1', username: 'john_doe' },
-        { id: '2', username: 'jane_smith' }
-      ])
+      // TODO: Fetch mutual connections from API
+      setMutualConnections([])
     } catch (error) {
       console.error('Failed to load profile:', error)
+      // Fallback to basic info on error
+      setProfile({
+        id: userId,
+        username,
+        created_at: new Date().toISOString(),
+      })
     }
   }
 
@@ -86,8 +92,14 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
           </div>
           
           <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
-            {username}
+            {profile?.full_name || username}
           </h3>
+          
+          {profile?.full_name && (
+            <p className="text-sm text-slate-600 dark:text-slate-400 mb-1">
+              @{username}
+            </p>
+          )}
           
           <p className="text-xs text-slate-500 dark:text-slate-400 mb-3">
             {isOnline ? '🟢 Active now' : lastSeen ? `Last seen ${formatLastSeen(lastSeen)}` : 'Offline'}
@@ -103,7 +115,7 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
             variant="outline"
             size="sm"
             className="w-full rounded-full border-slate-200 dark:border-slate-700"
-            onClick={() => window.location.href = `/profile/${username}`}
+            onClick={() => navigate(`/user/${username}`)}
           >
             <User className="h-4 w-4 mr-2" />
             View Profile
@@ -112,11 +124,35 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
 
         {/* Stats Section */}
         {profile && (
-          <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg">
-            <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
-              <Calendar className="h-4 w-4" />
-              <span>Joined {formatJoinDate(profile.created_at)}</span>
-            </div>
+          <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-800/50 rounded-lg space-y-2">
+            {profile.location && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+                <span>{profile.location}</span>
+              </div>
+            )}
+            {profile.website && (
+              <a 
+                href={profile.website} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="flex items-center gap-2 text-sm text-blue-600 dark:text-blue-400 hover:underline"
+              >
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+                </svg>
+                <span>{profile.website.replace(/^https?:\/\//, '')}</span>
+              </a>
+            )}
+            {profile.created_at && (
+              <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400">
+                <Calendar className="h-4 w-4" />
+                <span>Joined {formatJoinDate(profile.created_at)}</span>
+              </div>
+            )}
           </div>
         )}
 
@@ -139,7 +175,7 @@ export function ChatInfo({ username, userId, isOnline, lastSeen }: ChatInfoProps
                   <div
                     key={connection.id}
                     className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 cursor-pointer transition-colors"
-                    onClick={() => window.location.href = `/profile/${connection.username}`}
+                    onClick={() => navigate(`/user/${connection.username}`)}
                   >
                     <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${connectionColor.light} ${connectionColor.dark} flex items-center justify-center ${connectionColor.text} font-semibold text-xs`}>
                       {getUsernameInitials(connection.username)}

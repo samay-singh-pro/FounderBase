@@ -5,6 +5,7 @@ import CreateOpportunityPage from './components/CreateOpportunityPage'
 import OpportunityDetailPage from './components/OpportunityDetailPage'
 import MessagesPage from './components/MessagesPage'
 import ProfilePage from './components/ProfilePage'
+import UserProfilePage from './components/UserProfilePage'
 import NetworkPage from './components/NetworkPage'
 import SettingsPage from './components/SettingsPage'
 import Header from './components/Header'
@@ -40,6 +41,7 @@ function App() {
           <Route path="/opportunity/:id" element={<OpportunityDetailPage />} />
           <Route path="/messages" element={<MessagesPage />} />
           <Route path="/profile" element={<ProfilePage />} />
+          <Route path="/user/:username" element={<UserProfilePage />} />
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/settings" element={<SettingsPage />} />
         </Route>

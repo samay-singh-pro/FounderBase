@@ -14,7 +14,6 @@ class User(Base):
     User model for authentication and authorization.
     
     Future enhancements:
-    - Add profile fields (name, avatar, bio)
     - Add email verification status
     - Add OAuth provider info
     - Add role/permissions
@@ -26,6 +25,11 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(255), unique=True, index=True, nullable=False)
     username: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)
     hashed_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    full_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
+    bio: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, default=None)
+    location: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
+    website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     last_seen: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     
     def __repr__(self) -> str:

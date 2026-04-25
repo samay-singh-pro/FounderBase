@@ -14,6 +14,7 @@ interface UserProfile {
   id: string
   username: string
   email?: string
+  is_following?: boolean
 }
 
 export default function NetworkPage() {
@@ -75,6 +76,10 @@ export default function NetworkPage() {
       await followsService.unfollowUser(userId)
       // Remove from following list immediately for better UX
       setFollowing((prev) => prev.filter((u) => u.id !== userId))
+      // Update followers list to show "Follow Back" again
+      setFollowers((prev) => prev.map((f) => 
+        f.id === userId ? { ...f, is_following: false } : f
+      ))
       useToastStore.getState().success('Unfollowed successfully')
     } catch {
       useToastStore.getState().error('Failed to unfollow')
@@ -84,6 +89,10 @@ export default function NetworkPage() {
   const handleFollow = async (userId: string) => {
     try {
       await followsService.followUser(userId)
+      // Update followers list to show "Following"
+      setFollowers((prev) => prev.map((f) => 
+        f.id === userId ? { ...f, is_following: true } : f
+      ))
       useToastStore.getState().success('Followed successfully')
       // Reload data to update counts and lists
       await Promise.all([loadFollowing(), loadSuggestions()])
@@ -208,11 +217,23 @@ export default function NetworkPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleFollow(follower.id)}
-                            className="text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                            onClick={() => follower.is_following ? handleUnfollow(follower.id) : handleFollow(follower.id)}
+                            className={follower.is_following 
+                              ? "text-slate-600 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-500/10" 
+                              : "text-blue-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-500/10"
+                            }
                           >
-                            <UserPlus className="h-4 w-4 sm:mr-1" />
-                            <span className="hidden sm:inline">Follow Back</span>
+                            {follower.is_following ? (
+                              <>
+                                <UserMinus className="h-4 w-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Following</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserPlus className="h-4 w-4 sm:mr-1" />
+                                <span className="hidden sm:inline">Follow Back</span>
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
