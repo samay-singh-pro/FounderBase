@@ -11,5 +11,6 @@ from app.features.follows.models import Follow
 from app.features.likes.models import OpportunityLike
 from app.features.opportunities.models import Opportunity
 from app.features.messages.models import Conversation, Message, MessageReaction, BlockedUser, MutedConversation
+from app.features.settings.models import UserPrivacySettings
 
-__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark", "Follow", "Conversation", "Message", "MessageReaction", "BlockedUser", "MutedConversation"]
+__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark", "Follow", "Conversation", "Message", "MessageReaction", "BlockedUser", "MutedConversation", "UserPrivacySettings"]

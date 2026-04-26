@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { followsService } from '@/services/follows.service'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
-import { Card, CardContent, CardHeader } from './ui/card'
+import { Card, CardContent } from './ui/card'
 import { Button } from './ui/button'
 import { Spinner } from './ui/spinner'
 import { Users, UserPlus, UserMinus, User, Compass } from 'lucide-react'
@@ -106,48 +106,63 @@ export default function NetworkPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Network Header Card */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-                  Your Network
-                </h1>
-                <p className="text-slate-600 dark:text-slate-400 text-sm">
-                  Manage connections and discover new people
-                </p>
+        {/* Hero — sophisticated dark surface */}
+        <div className="hero-surface rounded-2xl mb-6 p-6 sm:p-7 shadow-sm">
+          <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <div className="hero-chip mb-3">
+                <Users className="h-3 w-3 hero-accent-text" />
+                <span>Your Network</span>
               </div>
+              <h1 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                People &amp; connections
+              </h1>
+              <p className="text-sm opacity-70 max-w-md mt-1">
+                Manage connections and discover new people in your space.
+              </p>
             </div>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => handleTabChange('followers')}>
-                <Users className="h-6 w-6 mx-auto mb-2 text-green-600 dark:text-green-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {followers.length}
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Followers</div>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => handleTabChange('following')}>
-                <UserPlus className="h-6 w-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {following.length}
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Following</div>
-              </div>
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors cursor-pointer" onClick={() => handleTabChange('suggestions')}>
-                <Compass className="h-6 w-6 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
-                  {suggestions.length}
-                </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Suggestions</div>
-              </div>
+            <div className="hidden sm:flex items-center justify-center w-14 h-14 shrink-0 rounded-xl border border-white/10 bg-white/[0.04]">
+              <Users className="h-6 w-6 hero-accent-text" />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
+
+        {/* Stats grid — monochrome, single style */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <button
+            onClick={() => handleTabChange('followers')}
+            className="text-left p-4 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover"
+          >
+            <Users className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+            <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+              {followers.length}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Followers</div>
+          </button>
+          <button
+            onClick={() => handleTabChange('following')}
+            className="text-left p-4 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover"
+          >
+            <UserPlus className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+            <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+              {following.length}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Following</div>
+          </button>
+          <button
+            onClick={() => handleTabChange('suggestions')}
+            className="text-left p-4 rounded-xl bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover"
+          >
+            <Compass className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+            <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
+              {suggestions.length}
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Suggestions</div>
+          </button>
+        </div>
 
         {/* Tabs */}
         <Tabs value={activeTab} onValueChange={handleTabChange}>

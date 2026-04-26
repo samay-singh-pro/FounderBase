@@ -44,6 +44,8 @@ class UserPublic(BaseModel):
     bio: Optional[str] = None
     location: Optional[str] = None
     website: Optional[str] = None
+    phone: Optional[str] = None
+    theme: Optional[str] = "light"
     created_at: Optional[datetime] = None
 
 
@@ -54,6 +56,8 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=500, description="Bio/About me (max 500 characters)")
     location: Optional[str] = Field(None, max_length=100, description="Location")
     website: Optional[str] = Field(None, max_length=255, description="Website URL")
+    phone: Optional[str] = Field(None, max_length=20, description="Phone number")
+    theme: Optional[str] = Field(None, max_length=20, description="UI theme preference")
 
 
 class Token(BaseModel):

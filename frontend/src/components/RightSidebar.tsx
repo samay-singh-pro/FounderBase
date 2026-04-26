@@ -35,24 +35,11 @@ export default function RightSidebar() {
     }
   }
 
-  const getCategoryColor = (index: number) => {
-    const colors = [
-      'bg-blue-100 dark:bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-500/30',
-      'bg-purple-100 dark:bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-500/30',
-      'bg-green-100 dark:bg-green-500/10 text-green-700 dark:text-green-400 border-green-200 dark:border-green-500/30',
-      'bg-orange-100 dark:bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-200 dark:border-orange-500/30',
-      'bg-pink-100 dark:bg-pink-500/10 text-pink-700 dark:text-pink-400 border-pink-200 dark:border-pink-500/30',
-      'bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-400 border-cyan-200 dark:border-cyan-500/30',
-    ]
-    return colors[index % colors.length]
-  }
+  const getCategoryRowClass = () =>
+    'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/60'
 
-  const getUserBadgeColor = (index: number) => {
-    if (index === 0) return 'bg-gradient-to-br from-yellow-100 to-yellow-200 dark:from-yellow-600 dark:to-yellow-500 text-yellow-700 dark:text-white'
-    if (index === 1) return 'bg-gradient-to-br from-slate-200 to-slate-300 dark:from-slate-500 dark:to-slate-600 text-slate-700 dark:text-white'
-    if (index === 2) return 'bg-gradient-to-br from-orange-100 to-orange-200 dark:from-orange-600 dark:to-orange-500 text-orange-700 dark:text-white'
-    return 'bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-600 dark:to-cyan-500 text-blue-700 dark:text-white'
-  }
+  const getUserBadgeClass = () =>
+    'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
 
   if (isLoading) {
     return (
@@ -80,16 +67,16 @@ export default function RightSidebar() {
             </div>
           </CardHeader>
           <CardContent className="space-y-2">
-            {categories.map((cat, index) => (
+            {categories.map((cat) => (
               <div
                 key={cat.category}
-                className={`p-3 rounded-lg border transition-all hover:scale-105 cursor-pointer ${getCategoryColor(index)}`}
+                className={`p-3 rounded-lg border transition-all lift-on-hover cursor-pointer ${getCategoryRowClass()}`}
               >
                 <div className="flex items-center justify-between">
                   <span className="font-semibold capitalize text-sm">
                     {cat.category}
                   </span>
-                  <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/30 dark:bg-black/20">
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-400 tabular-nums">
                     {cat.count}
                   </span>
                 </div>
@@ -117,11 +104,11 @@ export default function RightSidebar() {
                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/user/${user.username}`)}
               >
-                <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm ${getUserBadgeColor(index)}`}>
+                <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${getUserBadgeClass()}`}>
                   {user.username.charAt(0).toUpperCase()}
-                  {index < 3 && (
+                  {index === 0 && (
                     <div className="absolute -top-1 -right-1">
-                      <Crown className="h-4 w-4 text-yellow-500 dark:text-yellow-400" />
+                      <Crown className="h-4 w-4 text-amber-500" />
                     </div>
                   )}
                 </div>
@@ -168,7 +155,7 @@ export default function RightSidebar() {
                 onClick={() => navigate(`/opportunity/${post.id}`)}
               >
                 <div className="flex items-start gap-2 mb-2">
-                  <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-bold text-xs flex-shrink-0">
+                  <div className="w-7 h-7 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 font-semibold text-xs flex-shrink-0">
                     {post.username?.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -203,14 +190,14 @@ export default function RightSidebar() {
       )}
 
       {/* Platform Info */}
-      <Card className="border-slate-200 dark:border-slate-800 bg-gradient-to-br from-blue-50 to-cyan-50 dark:from-blue-950/30 dark:to-cyan-950/30">
+      <Card className="border-slate-200 dark:border-slate-800">
         <CardContent className="p-4">
           <div className="flex items-start gap-3">
-            <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/20">
-              <Sparkles className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+            <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+              <Sparkles className="h-5 w-5 text-slate-600 dark:text-slate-400" />
             </div>
             <div className="flex-1">
-              <h4 className="font-bold text-sm text-slate-900 dark:text-slate-100 mb-1">
+              <h4 className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">
                 Join the Community
               </h4>
               <p className="text-xs text-slate-600 dark:text-slate-400 mb-3">
@@ -220,7 +207,7 @@ export default function RightSidebar() {
                 <Button
                   size="sm"
                   onClick={() => navigate('/create')}
-                  className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1 text-xs h-8 bg-blue-600 hover:bg-blue-700 text-white"
                 >
                   Get Started
                 </Button>
@@ -228,7 +215,7 @@ export default function RightSidebar() {
                   size="sm"
                   variant="outline"
                   onClick={() => window.open('https://github.com', '_blank')}
-                  className="text-xs h-8 border-blue-300 dark:border-blue-500/30"
+                  className="text-xs h-8"
                 >
                   <ExternalLink className="h-3 w-3" />
                 </Button>

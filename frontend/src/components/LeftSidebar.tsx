@@ -58,36 +58,36 @@ export default function LeftSidebar() {
         <CardContent className="space-y-3">
           <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-blue-100 dark:bg-blue-500/10">
-                <FileText className="h-4 w-4 text-blue-600 dark:text-blue-400" />
+              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                <FileText className="h-4 w-4 text-slate-600 dark:text-slate-400" />
               </div>
               <span className="text-sm text-slate-600 dark:text-slate-400">Posts</span>
             </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
+            <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {stats?.total_opportunities || 0}
             </span>
           </div>
 
           <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-green-100 dark:bg-green-500/10">
-                <Users className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                <Users className="h-4 w-4 text-slate-600 dark:text-slate-400" />
               </div>
               <span className="text-sm text-slate-600 dark:text-slate-400">Users</span>
             </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
+            <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {stats?.total_users || 0}
             </span>
           </div>
 
           <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors">
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-purple-100 dark:bg-purple-500/10">
-                <Grid3x3 className="h-4 w-4 text-purple-600 dark:text-purple-400" />
+              <div className="p-2 rounded-lg bg-slate-100 dark:bg-slate-800">
+                <Grid3x3 className="h-4 w-4 text-slate-600 dark:text-slate-400" />
               </div>
               <span className="text-sm text-slate-600 dark:text-slate-400">Categories</span>
             </div>
-            <span className="font-bold text-slate-900 dark:text-slate-100">
+            <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
               {stats?.total_categories || 0}
             </span>
           </div>
@@ -106,10 +106,10 @@ export default function LeftSidebar() {
             {stats.by_type.problem !== undefined && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2">
-                  <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                  <AlertCircle className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                   <span className="text-sm text-slate-600 dark:text-slate-400">Problems</span>
                 </div>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                   {stats.by_type.problem}
                 </span>
               </div>
@@ -118,10 +118,10 @@ export default function LeftSidebar() {
             {stats.by_type.idea !== undefined && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+                  <Lightbulb className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                   <span className="text-sm text-slate-600 dark:text-slate-400">Ideas</span>
                 </div>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                   {stats.by_type.idea}
                 </span>
               </div>
@@ -130,10 +130,10 @@ export default function LeftSidebar() {
             {stats.by_type.improvement !== undefined && (
               <div className="flex items-center justify-between p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50">
                 <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-green-600 dark:text-green-400" />
+                  <TrendingUp className="h-4 w-4 text-slate-500 dark:text-slate-400" />
                   <span className="text-sm text-slate-600 dark:text-slate-400">Improvements</span>
                 </div>
-                <span className="font-semibold text-slate-900 dark:text-slate-100">
+                <span className="font-semibold text-slate-900 dark:text-slate-100 tabular-nums">
                   {stats.by_type.improvement}
                 </span>
               </div>
@@ -170,7 +170,7 @@ export default function LeftSidebar() {
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/user/${suggestedUser.username}`)}
               >
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-purple-100 to-pink-200 dark:from-purple-600 dark:to-pink-500 flex items-center justify-center text-purple-700 dark:text-white font-bold text-sm flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 font-semibold text-sm flex-shrink-0">
                   {suggestedUser.username.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -200,7 +200,7 @@ export default function LeftSidebar() {
         <CardContent className="space-y-2">
           <Button
             onClick={() => navigate('/create')}
-            className="w-full justify-start bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-700 hover:to-cyan-700 text-white"
+            className="w-full justify-start bg-blue-600 hover:bg-blue-700 text-white"
             size="sm"
           >
             <Lightbulb className="h-4 w-4 mr-2" />
@@ -209,7 +209,7 @@ export default function LeftSidebar() {
           <Button
             onClick={() => navigate('/create')}
             variant="outline"
-            className="w-full justify-start hover:bg-red-50 hover:border-red-300 hover:text-red-700 dark:hover:bg-red-500/10 dark:hover:border-red-500/30"
+            className="w-full justify-start"
             size="sm"
           >
             <AlertCircle className="h-4 w-4 mr-2" />
@@ -218,7 +218,7 @@ export default function LeftSidebar() {
           <Button
             onClick={() => navigate('/network')}
             variant="outline"
-            className="w-full justify-start hover:bg-green-50 hover:border-green-300 hover:text-green-700 dark:hover:bg-green-500/10 dark:hover:border-green-500/30"
+            className="w-full justify-start"
             size="sm"
           >
             <Users className="h-4 w-4 mr-2" />

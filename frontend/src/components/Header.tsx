@@ -1,9 +1,10 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from './ui/button'
 import { useAuthStore } from '@/store/authStore'
-import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare, User, FileText, Bookmark, Users, Settings, ChevronDown } from 'lucide-react'
-import { useState, useEffect } from 'react'
+import { useThemeStore, themeConfig, type Theme } from '@/stores/themeStore'
+import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare, User, FileText, Bookmark, Users, Settings, ChevronDown, Palette, Check } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
+import api from '@/lib/api'
 
 interface HeaderProps {
   onRefresh?: () => void
@@ -13,44 +14,45 @@ interface HeaderProps {
 
 export default function Header({ onRefresh, isRefreshing = false, showBackButton = false }: HeaderProps) {
   const navigate = useNavigate()
-  const { user, clearAuth } = useAuthStore()
-  const [isDarkMode, setIsDarkMode] = useState(() => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('theme') === 'dark' || 
-             (!localStorage.getItem('theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)
-    }
-    return false
-  })
+  const { user, clearAuth, updateUser } = useAuthStore()
+  const { theme, setTheme } = useThemeStore()
 
-  useEffect(() => {
-    if (isDarkMode) {
-      document.documentElement.classList.add('dark')
-      localStorage.setItem('theme', 'dark')
-    } else {
-      document.documentElement.classList.remove('dark')
-      localStorage.setItem('theme', 'light')
+  const handleThemeChange = async (newTheme: Theme) => {
+    setTheme(newTheme)
+    try {
+      const response = await api.put('/api/v1/auth/me', { theme: newTheme })
+      if (response.data) {
+        updateUser(response.data)
+      }
+    } catch (error) {
+      console.error('Failed to save theme preference:', error)
     }
-  }, [isDarkMode])
+  }
 
   const handleLogout = () => {
     clearAuth()
     navigate('/auth')
   }
 
+  const getThemeIcon = () => {
+    if (theme === 'dark' || theme === 'forest') return <Moon className="h-4 w-4" />
+    return <Sun className="h-4 w-4" />
+  }
+
   return (
     <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 sticky top-0 z-10 shadow-sm">
       <div className="max-w-8xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-        <h1 
-          className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-blue-500 bg-clip-text text-transparent dark:from-blue-500 dark:to-cyan-400 cursor-pointer" 
+        <h1
+          className="text-2xl font-bold text-slate-900 dark:text-slate-100 cursor-pointer tracking-tight"
           onClick={() => navigate('/')}
         >
-          FoundrBase
+          Foundr<span className="text-blue-600 dark:text-blue-400">Base</span>
         </h1>
         <div className="flex items-center gap-4 flex-1 justify-end">
           <Button
             size="sm"
             onClick={() => navigate('/create')}
-            className="rounded-full bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-700 hover:to-blue-600 text-white"
+            className="rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 theme-slate:bg-slate-600 theme-slate:hover:bg-slate-700 theme-forest:bg-lime-600 theme-forest:hover:bg-lime-500 text-white shadow-sm"
           >
             <Plus className="h-4 w-4 sm:mr-2" />
             <span className="hidden sm:inline">Create</span>
@@ -92,15 +94,39 @@ export default function Header({ onRefresh, isRefreshing = false, showBackButton
             </Button>
           )}
           
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => setIsDarkMode(!isDarkMode)}
-            className="rounded-full hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400"
-            title={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+          <DropdownMenu
+            align="end"
+            trigger={
+              <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:text-amber-600 dark:hover:text-amber-400 transition-colors">
+                {getThemeIcon()}
+                <ChevronDown className="h-3 w-3" />
+              </button>
+            }
           >
-            {isDarkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </Button>
+            <div className="px-2 py-1.5 text-xs text-slate-500 dark:text-slate-400 font-medium">
+              Theme
+            </div>
+            <div className="h-px bg-slate-200 dark:bg-slate-800 my-1" />
+            
+            {(Object.keys(themeConfig) as Theme[]).map((themeKey) => {
+              const config = themeConfig[themeKey]
+              return (
+                <DropdownMenuItem
+                  key={themeKey}
+                  onClick={() => handleThemeChange(themeKey)}
+                >
+                  <div
+                    className="w-3 h-3 rounded-full mr-2"
+                    style={{ backgroundColor: config.colors.primary }}
+                  />
+                  {config.name}
+                  {theme === themeKey && (
+                    <Check className="h-3.5 w-3.5 ml-auto text-blue-600 dark:text-blue-400" />
+                  )}
+                </DropdownMenuItem>
+              )
+            })}
+          </DropdownMenu>
           
           <DropdownMenu
             align="end"

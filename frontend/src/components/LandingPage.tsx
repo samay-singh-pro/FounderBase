@@ -6,7 +6,7 @@ import OpportunityCard from './OpportunityCard'
 import LeftSidebar from './LeftSidebar'
 import RightSidebar from './RightSidebar'
 import { CustomSelect } from './ui/custom-select'
-import { Search, X, ArrowUpDown, SlidersHorizontal } from 'lucide-react'
+import { Search, X, ArrowUpDown, SlidersHorizontal, Sparkles, TrendingUp, Lightbulb } from 'lucide-react'
 import { Spinner } from './ui/spinner'
 
 export default function LandingPage() {
@@ -165,23 +165,47 @@ export default function LandingPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Sidebar - Hidden on mobile and tablet, shown on desktop */}
+          {/* Left Sidebar */}
           <aside className="hidden lg:block lg:col-span-3">
             <LeftSidebar />
           </aside>
 
           {/* Main Content */}
           <main className="lg:col-span-6">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-slate-900 dark:text-slate-100 mb-1">
-                Discover Ideas & Problems
-              </h2>
-              <p className="text-sm text-slate-600 dark:text-slate-400">
-                Explore opportunities, share your thoughts, and connect with innovators
-              </p>
+            {/* Hero — sophisticated dark surface with subtle accent glow */}
+            <div className="hero-surface rounded-2xl mb-6 p-6 sm:p-7 shadow-sm">
+              <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="hero-chip mb-3">
+                    <Sparkles className="h-3 w-3 hero-accent-text" />
+                    <span>Welcome back</span>
+                  </div>
+                  <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                    Discover ideas &amp; problems
+                  </h2>
+                  <p className="text-sm opacity-70 max-w-md mt-1">
+                    Explore opportunities, share your thoughts, and connect with innovators.
+                  </p>
+                  <div className="flex items-center gap-2 mt-5 text-xs opacity-80">
+                    <span className="inline-flex items-center gap-1.5">
+                      <TrendingUp className="h-3.5 w-3.5 hero-accent-text" />
+                      <span>{total} live</span>
+                    </span>
+                    <span className="opacity-30">•</span>
+                    <span className="inline-flex items-center gap-1.5">
+                      <Lightbulb className="h-3.5 w-3.5 hero-accent-text" />
+                      <span>Fresh today</span>
+                    </span>
+                  </div>
+                </div>
+                <div className="hidden sm:flex items-center justify-center w-14 h-14 shrink-0 rounded-xl border border-white/10 bg-white/[0.04]">
+                  <Sparkles className="h-6 w-6 hero-accent-text" />
+                </div>
+              </div>
             </div>
 
         <div className="mb-6 bg-white dark:bg-slate-900 rounded-2xl border-2 border-slate-200 dark:border-slate-800 p-5 shadow-sm">

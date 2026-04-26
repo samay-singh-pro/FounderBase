@@ -5,6 +5,7 @@ interface User {
   id: string
   email: string
   username: string
+  theme?: string
 }
 
 interface AuthState {
@@ -13,6 +14,7 @@ interface AuthState {
   isAuthenticated: boolean
   setAuth: (token: string, user: User) => void
   clearAuth: () => void
+  updateUser: (user: User) => void
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -26,6 +28,9 @@ export const useAuthStore = create<AuthState>()(
       },
       clearAuth: () => {
         set({ accessToken: null, user: null, isAuthenticated: false })
+      },
+      updateUser: (user: User) => {
+        set({ user })
       },
     }),
     {

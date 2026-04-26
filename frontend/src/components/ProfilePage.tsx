@@ -178,93 +178,102 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <div className="max-w-5xl mx-auto px-4 py-8">
-        {/* Profile Header */}
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-bold text-3xl">
-                  {user?.username?.charAt(0).toUpperCase()}
+        {/* Profile Header with cover banner */}
+        <Card className="mb-6 overflow-hidden">
+          {/* Cover banner — sophisticated monochrome */}
+          <div className="hero-surface relative h-36 sm:h-44">
+            <div className="absolute inset-0 bg-grid-pattern opacity-40" />
+          </div>
+
+          <CardHeader className="relative pt-0">
+            <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12 sm:-mt-14">
+              <div className="flex items-end gap-4">
+                <div className="relative">
+                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-800 dark:bg-slate-700 flex items-center justify-center text-white font-semibold text-4xl ring-4 ring-white dark:ring-slate-900 shadow-md">
+                    {user?.username?.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
                 </div>
-                <div>
+                <div className="pb-1 sm:pb-2">
                   <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
                     {profile?.full_name || user?.username}
                   </h1>
                   <p className="text-slate-600 dark:text-slate-400 text-sm">
                     @{user?.username}
                   </p>
-                  {profile?.bio && (
-                    <p className="text-slate-700 dark:text-slate-300 text-sm mt-2 max-w-2xl">
-                      {profile.bio}
-                    </p>
-                  )}
-                  <div className="flex flex-wrap items-center gap-4 mt-2 text-xs text-slate-600 dark:text-slate-400">
-                    {profile?.location && (
-                      <span className="flex items-center gap-1">
-                        <MapPin className="h-3.5 w-3.5" />
-                        {profile.location}
-                      </span>
-                    )}
-                    {profile?.website && (
-                      <a 
-                        href={profile.website} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 hover:text-blue-600 dark:hover:text-blue-400"
-                      >
-                        <Globe className="h-3.5 w-3.5" />
-                        {profile.website.replace(/^https?:\/\//, '')}
-                      </a>
-                    )}
-                    <span className="flex items-center gap-1">
-                      <Calendar className="h-3.5 w-3.5" />
-                      Joined {formatJoinDate(profile?.created_at)}
-                    </span>
-                  </div>
                 </div>
               </div>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowEditModal(true)}
-                className="rounded-full"
+                className="rounded-full self-start sm:self-end"
               >
                 <Edit className="h-4 w-4 mr-2" />
                 Edit Profile
               </Button>
             </div>
+
+            {profile?.bio && (
+              <p className="text-slate-700 dark:text-slate-300 text-sm mt-4 max-w-2xl">
+                {profile.bio}
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-3 mt-3 text-xs text-slate-600 dark:text-slate-400">
+              {profile?.location && (
+                <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800">
+                  <MapPin className="h-3.5 w-3.5" />
+                  {profile.location}
+                </span>
+              )}
+              {profile?.website && (
+                <a
+                  href={profile.website}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
+                >
+                  <Globe className="h-3.5 w-3.5" />
+                  {profile.website.replace(/^https?:\/\//, '')}
+                </a>
+              )}
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-full bg-slate-100 dark:bg-slate-800">
+                <Calendar className="h-3.5 w-3.5" />
+                Joined {formatJoinDate(profile?.created_at)}
+              </span>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                <FileText className="h-6 w-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="text-left p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover">
+                <FileText className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                   {stats.posts_count}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Posts</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Posts</div>
               </div>
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                <Users className="h-6 w-6 mx-auto mb-2 text-green-600 dark:text-green-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-left p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover">
+                <Users className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                   {stats.followers_count}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Followers</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Followers</div>
               </div>
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                <User className="h-6 w-6 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-left p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover">
+                <User className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                   {stats.following_count}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Following</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Following</div>
               </div>
-              <div className="text-center p-4 rounded-lg bg-slate-50 dark:bg-slate-800/50">
-                <Heart className="h-6 w-6 mx-auto mb-2 text-red-600 dark:text-red-400" />
-                <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">
+              <div className="text-left p-4 rounded-xl bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-800 lift-on-hover">
+                <Heart className="h-4 w-4 mb-3 text-slate-500 dark:text-slate-400" />
+                <div className="text-2xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight">
                   {stats.total_likes}
                 </div>
-                <div className="text-xs text-slate-600 dark:text-slate-400">Likes</div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Likes</div>
               </div>
             </div>
           </CardContent>

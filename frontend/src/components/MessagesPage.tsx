@@ -673,7 +673,7 @@ export default function MessagesPage() {
   }
 
   return (
-    <div className="h-[calc(100vh-65px)] bg-slate-50 dark:bg-slate-950">
+    <div className="h-[calc(100vh-65px)] bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <div className="h-full max-w-[1800px] mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] xl:grid-cols-[380px_1fr_340px] h-full">
           <div className={`${activeConversationId ? 'hidden md:block' : 'block'} relative h-full overflow-hidden`}>
@@ -723,14 +723,19 @@ export default function MessagesPage() {
                 isBlockedByThem={activeConversation.isBlockedByThem}
               />
             ) : (
-              <div className="flex flex-col items-center justify-center h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800">
-                <MessageSquare className="h-20 w-20 text-slate-300 dark:text-slate-600 mb-4" />
-                <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 mb-2">
-                  Select a conversation
-                </h3>
-                <p className="text-sm text-slate-500 dark:text-slate-400">
-                  Choose a conversation from the list to start messaging
-                </p>
+              <div className="relative flex flex-col items-center justify-center h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 overflow-hidden">
+                <div className="absolute inset-0 bg-dot-pattern opacity-60" />
+                <div className="relative z-10 flex flex-col items-center text-center px-8">
+                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 flex items-center justify-center mb-5">
+                    <MessageSquare className="h-7 w-7 text-slate-500 dark:text-slate-400" />
+                  </div>
+                  <h3 className="text-xl font-semibold text-slate-900 dark:text-slate-100 tracking-tight mb-1.5">
+                    Your conversations live here
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                    Select a conversation from the list, or start a new one.
+                  </p>
+                </div>
               </div>
             )}
           </div>

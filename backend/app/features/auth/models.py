@@ -29,6 +29,8 @@ class User(Base):
     bio: Mapped[Optional[str]] = mapped_column(String(500), nullable=True, default=None)
     location: Mapped[Optional[str]] = mapped_column(String(100), nullable=True, default=None)
     website: Mapped[Optional[str]] = mapped_column(String(255), nullable=True, default=None)
+    phone: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default=None)
+    theme: Mapped[Optional[str]] = mapped_column(String(20), nullable=True, default="light")
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow, nullable=False)
     last_seen: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True, default=None)
     

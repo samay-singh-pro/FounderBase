@@ -231,20 +231,41 @@ export default function CreateOpportunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <main className="max-w-4xl mx-auto px-4 py-6">
-        <div className="mb-8 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleCancel}
-              className="text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full -ml-2"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-            <h2 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">{isEditMode ? 'Edit Post' : 'Create Post'}</h2>
+        {/* Hero — sophisticated dark surface */}
+        <div className="hero-surface rounded-2xl mb-6 p-6 sm:p-7 shadow-sm">
+          <div className="absolute inset-0 bg-grid-pattern opacity-50" />
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancel}
+                className="text-current hover:bg-white/[0.06] rounded-full -ml-2"
+              >
+                <ArrowLeft className="h-5 w-5" />
+              </Button>
+              <div>
+                <div className="hero-chip mb-2">
+                  <FileText className="h-3 w-3 hero-accent-text" />
+                  <span>{isEditMode ? 'Editing' : 'New post'}</span>
+                </div>
+                <h2 className="text-2xl sm:text-3xl font-semibold tracking-tight">
+                  {isEditMode ? 'Edit Post' : 'Share your idea'}
+                </h2>
+                <p className="text-sm opacity-70 mt-1">
+                  {isEditMode ? 'Refine and update your contribution.' : 'Tell the community what you’re working on.'}
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center justify-center w-14 h-14 shrink-0 rounded-xl border border-white/10 bg-white/[0.04]">
+              <FileText className="h-6 w-6 hero-accent-text" />
+            </div>
           </div>
+        </div>
+
+        <div className="mb-6 flex items-center justify-end">
           <div className="flex gap-2">
             <Button
               variant="outline"

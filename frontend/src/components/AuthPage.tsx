@@ -7,11 +7,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
+import { useThemeStore } from '@/stores/themeStore'
 import { Loader2 } from 'lucide-react'
 
 export default function AuthPage() {
   const navigate = useNavigate()
   const { setAuth, isAuthenticated } = useAuthStore()
+  const { setTheme } = useThemeStore()
   const [activeTab, setActiveTab] = useState('login')
   const [loginData, setLoginData] = useState({ email: '', password: '' })
   const [signupData, setSignupData] = useState({ email: '', username: '', password: '', confirmPassword: '' })
@@ -38,6 +40,12 @@ export default function AuthPage() {
       })
       
       setAuth(response.access_token, response.user)
+      
+      // Apply user's saved theme preference
+      if (response.user.theme && ['light', 'dark', 'slate', 'forest'].includes(response.user.theme)) {
+        setTheme(response.user.theme as 'light' | 'dark' | 'slate' | 'forest')
+      }
+      
       navigate('/', { replace: true })
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Incorrect email or password. Please try again.')
