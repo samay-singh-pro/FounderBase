@@ -11,6 +11,7 @@ import { draftsService, type Draft } from '@/services/drafts.service'
 import type { CreateOpportunityData } from '@/services/opportunities.service'
 import { ArrowLeft, Image, Link as LinkIcon, FileText, X, Plus, Save, Loader2 } from 'lucide-react'
 import DraftsModal from './DraftsModal'
+import AIWritingAssistant from './AIWritingAssistant'
 
 const CATEGORY_OPTIONS = [
   { value: 'farming', label: 'Farming' },
@@ -232,7 +233,9 @@ export default function CreateOpportunityPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 bg-page-soft">
-      <main className="max-w-4xl mx-auto px-4 py-6">
+      <main className="max-w-7xl mx-auto px-4 pt-24 pb-8">
+        <div className="grid grid-cols-1 lg:grid-cols-[1fr,420px] gap-6">
+          <div className="min-w-0">
         {/* Hero — sophisticated dark surface */}
         <div className="hero-surface rounded-2xl mb-6 p-6 sm:p-7 shadow-sm">
           <div className="absolute inset-0 bg-grid-pattern opacity-50" />
@@ -506,6 +509,22 @@ export default function CreateOpportunityPage() {
             {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
             {isSubmitting ? (isEditMode ? 'Updating...' : 'Posting...') : (isEditMode ? 'Update' : 'Post')}
           </Button>
+        </div>
+          </div>
+
+          {/* AI Assistant - Desktop only */}
+          <div className="hidden lg:block">
+            <div className="sticky top-20 h-[calc(100vh-5.5rem)]">
+              <AIWritingAssistant
+                currentDraft={{
+                  title: formData.title,
+                  description: formData.description,
+                  category: formData.category,
+                  type: formData.type
+                }}
+              />
+            </div>
+          </div>
         </div>
       </main>
 

@@ -11,6 +11,10 @@ class Settings(BaseSettings):
     secret_key: str = "your-secret-key-change-this-in-production"
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 1440  # 1 day
+    
+    # Google Gemini AI Settings
+    google_gemini_api_key: str = ""  # Set in .env file
+    gemini_model: str = "models/gemini-flash-lite-latest"  # Cheapest model
 
 
 settings = Settings()
