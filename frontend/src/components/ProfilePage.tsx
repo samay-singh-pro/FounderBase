@@ -11,10 +11,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs'
 import { Card, CardContent, CardHeader } from './ui/card'
 import { Button } from './ui/button'
 import { Spinner } from './ui/spinner'
-import { User, FileText, Bookmark, Heart, File, Edit, Users, MapPin, Globe, Calendar, X } from 'lucide-react'
+import { User, FileText, Bookmark, Heart, File, Edit, Users, MapPin, Globe, Calendar, X, Camera, Loader2 } from 'lucide-react'
 import { useToastStore } from '@/store/toastStore'
 import { Input } from './ui/input'
 import { Textarea } from './ui/textarea'
+import { Avatar } from './ui/avatar'
+import { classifyFile, mediaService } from '@/services/media.service'
 
 export default function ProfilePage() {
   const [searchParams, setSearchParams] = useSearchParams()
@@ -31,12 +33,20 @@ export default function ProfilePage() {
   const [isSaving, setIsSaving] = useState(false)
   
   const [profile, setProfile] = useState<UserProfile | null>(null)
-  
-  const [editForm, setEditForm] = useState({
+  const [isUploadingAvatar, setIsUploadingAvatar] = useState(false)
+
+  const [editForm, setEditForm] = useState<{
+    full_name: string
+    bio: string
+    location: string
+    website: string
+    avatar_url: string
+  }>({
     full_name: '',
     bio: '',
     location: '',
-    website: ''
+    website: '',
+    avatar_url: '',
   })
   
   const [stats, setStats] = useState({
@@ -57,11 +67,19 @@ export default function ProfilePage() {
     try {
       const profileData = await authService.getMyProfile()
       setProfile(profileData)
+      // Hydrate the auth store with the freshest profile so the header (and
+      // any other "current user avatar" surfaces) refresh without requiring
+      // a logout. Important for sessions started before avatar_url existed.
+      const currentUser = useAuthStore.getState().user
+      if (currentUser) {
+        useAuthStore.getState().updateUser({ ...currentUser, ...profileData })
+      }
       setEditForm({
         full_name: profileData.full_name || '',
         bio: profileData.bio || '',
         location: profileData.location || '',
-        website: profileData.website || ''
+        website: profileData.website || '',
+        avatar_url: profileData.avatar_url || '',
       })
     } catch (error) {
       useToastStore.getState().error('Failed to load profile')
@@ -160,14 +178,41 @@ export default function ProfilePage() {
   const handleSaveProfile = async () => {
     setIsSaving(true)
     try {
-      const updated = await authService.updateMyProfile(editForm)
+      const updated = await authService.updateMyProfile({
+        ...editForm,
+        // Send null when cleared so the server actually unsets the column,
+        // rather than leaving the previous value in place.
+        avatar_url: editForm.avatar_url || null,
+      })
       setProfile(updated)
+      // Keep the auth store in sync so headers/avatars across the app refresh.
+      if (user) {
+        useAuthStore.getState().updateUser({ ...user, ...updated })
+      }
       setShowEditModal(false)
       useToastStore.getState().success('Profile updated successfully')
     } catch (error) {
       useToastStore.getState().error('Failed to update profile')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleAvatarFile = async (file: File | null | undefined) => {
+    if (!file) return
+    const check = classifyFile(file)
+    if (check.error || check.kind === 'video') {
+      useToastStore.getState().error(check.error || 'Avatars must be an image')
+      return
+    }
+    setIsUploadingAvatar(true)
+    try {
+      const uploaded = await mediaService.upload(file)
+      setEditForm((prev) => ({ ...prev, avatar_url: uploaded.url }))
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Avatar upload failed')
+    } finally {
+      setIsUploadingAvatar(false)
     }
   }
 
@@ -191,10 +236,13 @@ export default function ProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12 sm:-mt-14">
               <div className="flex items-end gap-4">
                 <div className="relative">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-800 dark:bg-slate-700 flex items-center justify-center text-white font-semibold text-4xl ring-4 ring-white dark:ring-slate-900 shadow-md">
-                    {user?.username?.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="absolute -bottom-1 -right-1 w-4 h-4 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-slate-900" />
+                  <Avatar
+                    username={user?.username || ''}
+                    avatarUrl={profile?.avatar_url ?? user?.avatar_url}
+                    size={112}
+                    online
+                    ringClassName="ring-4 ring-white dark:ring-slate-900 shadow-md"
+                  />
                 </div>
                 <div className="pb-1 sm:pb-2">
                   <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">
@@ -481,6 +529,46 @@ export default function ProfilePage() {
             </div>
 
             <div className="p-6 space-y-4">
+              <div className="flex items-center gap-4">
+                <Avatar
+                  username={user?.username || ''}
+                  avatarUrl={editForm.avatar_url || null}
+                  size={72}
+                  ringClassName="ring-2 ring-slate-200 dark:ring-slate-700"
+                />
+                <div className="flex-1 flex flex-wrap gap-2">
+                  <label
+                    className={`inline-flex items-center gap-1.5 cursor-pointer rounded-full border border-slate-300 dark:border-slate-700 px-3 py-1.5 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                      isUploadingAvatar ? 'opacity-50 pointer-events-none' : ''
+                    }`}
+                  >
+                    {isUploadingAvatar ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Camera className="h-4 w-4" />
+                    )}
+                    {editForm.avatar_url ? 'Change photo' : 'Upload photo'}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp,image/gif"
+                      className="hidden"
+                      onChange={(e) => handleAvatarFile(e.target.files?.[0])}
+                      disabled={isUploadingAvatar}
+                    />
+                  </label>
+                  {editForm.avatar_url && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setEditForm({ ...editForm, avatar_url: '' })}
+                      className="rounded-full text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20"
+                    >
+                      Remove
+                    </Button>
+                  )}
+                </div>
+              </div>
               <div>
                 <label className="text-sm font-medium text-slate-700 dark:text-slate-300 mb-1.5 block">
                   Full Name

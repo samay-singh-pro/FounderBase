@@ -6,6 +6,7 @@ import { statsService, type CategoryStat, type ActiveUser } from '@/services/sta
 import { opportunitiesService, type Opportunity } from '@/services/opportunities.service'
 import { TrendingUp, Crown, Sparkles, Clock, MessageSquare, Heart, ExternalLink } from 'lucide-react'
 import { Spinner } from './ui/spinner'
+import { Avatar } from './ui/avatar'
 
 export default function RightSidebar() {
   const navigate = useNavigate()
@@ -37,9 +38,6 @@ export default function RightSidebar() {
 
   const getCategoryRowClass = () =>
     'bg-slate-50 dark:bg-slate-800/50 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700/60'
-
-  const getUserBadgeClass = () =>
-    'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200'
 
   if (isLoading) {
     return (
@@ -104,8 +102,8 @@ export default function RightSidebar() {
                 className="flex items-center gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/user/${user.username}`)}
               >
-                <div className={`relative flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm ${getUserBadgeClass()}`}>
-                  {user.username.charAt(0).toUpperCase()}
+                <div className="relative flex-shrink-0">
+                  <Avatar username={user.username} avatarUrl={user.avatar_url} size={40} />
                   {index === 0 && (
                     <div className="absolute -top-1 -right-1">
                       <Crown className="h-4 w-4 text-amber-500" />

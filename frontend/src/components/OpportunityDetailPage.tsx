@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -12,9 +12,14 @@ import { bookmarksService } from '@/services/bookmarks.service'
 import { followsService } from '@/services/follows.service'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
-import { Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2, MessageSquare, UserPlus, UserCheck } from 'lucide-react'
+import { ArrowLeft, Heart, Send, Bookmark, ExternalLink, Edit2, Trash2, Share2, MoreVertical, Loader2, MessageSquare, UserPlus, UserCheck, Image as ImageIcon, Smile, Sparkles, X } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
 import { ConfirmDialog } from './ui/confirm-dialog'
+import MediaGallery from './media/MediaGallery'
+import GifPicker from './media/GifPicker'
+import { classifyFile, mediaService, resolveMediaUrl, type Media } from '@/services/media.service'
+import { aiService } from '@/services/ai.service'
+import { Avatar } from './ui/avatar'
 
 export default function OpportunityDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -33,11 +38,20 @@ export default function OpportunityDetailPage() {
   
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
+  const [commentMedia, setCommentMedia] = useState<Media | null>(null)
+  const [isUploadingCommentMedia, setIsUploadingCommentMedia] = useState(false)
+  const [showCommentGifPicker, setShowCommentGifPicker] = useState(false)
+  const commentGifButtonRef = useRef<HTMLButtonElement>(null)
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [isTogglingLike, setIsTogglingLike] = useState(false)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [isTogglingBookmark, setIsTogglingBookmark] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [summary, setSummary] = useState<string | null>(null)
+  const [summaryError, setSummaryError] = useState<string | null>(null)
+  const [summaryCommentsCount, setSummaryCommentsCount] = useState(0)
+  const [isSummarizing, setIsSummarizing] = useState(false)
+  const [showSummary, setShowSummary] = useState(false)
   const [showDeleteCommentConfirm, setShowDeleteCommentConfirm] = useState(false)
   const [commentToDelete, setCommentToDelete] = useState<string | null>(null)
   const [showMessageDialog, setShowMessageDialog] = useState(false)
@@ -148,17 +162,44 @@ export default function OpportunityDetailPage() {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!opportunity || !newComment.trim()) return
+    if (!opportunity) return
+    if (!newComment.trim() && !commentMedia) return
 
     setIsSubmittingComment(true)
     try {
-      const comment = await commentsService.createComment(opportunity.id, { content: newComment })
+      const comment = await commentsService.createComment(opportunity.id, {
+        content: newComment,
+        media_id: commentMedia?.id ?? null,
+      })
       setComments([...comments, comment])
       setNewComment('')
+      setCommentMedia(null)
     } catch {
       useToastStore.getState().error('Failed to post comment. Please try again.')
     } finally {
       setIsSubmittingComment(false)
+    }
+  }
+
+  const handleCommentFile = async (file: File | null | undefined) => {
+    if (!file) return
+    const check = classifyFile(file)
+    if (check.error) {
+      useToastStore.getState().error(check.error)
+      return
+    }
+    if (check.kind === 'video') {
+      useToastStore.getState().error('Videos cannot be attached to comments')
+      return
+    }
+    setIsUploadingCommentMedia(true)
+    try {
+      const uploaded = await mediaService.upload(file)
+      setCommentMedia(uploaded)
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Upload failed')
+    } finally {
+      setIsUploadingCommentMedia(false)
     }
   }
 
@@ -280,15 +321,64 @@ export default function OpportunityDetailPage() {
     )
   }
 
+  const handleSummarize = async () => {
+    if (!opportunity) return
+    if (showSummary) {
+      setShowSummary(false)
+      return
+    }
+    if (summary) {
+      setShowSummary(true)
+      return
+    }
+    setIsSummarizing(true)
+    setSummaryError(null)
+    setShowSummary(true)
+    try {
+      const result = await aiService.summarizePost(opportunity.id)
+      if (result.success) {
+        setSummary(result.summary)
+        setSummaryCommentsCount(result.comments_considered)
+      } else {
+        setSummaryError(result.error || 'Failed to summarize')
+      }
+    } catch {
+      setSummaryError('Failed to summarize. Please try again.')
+    } finally {
+      setIsSummarizing(false)
+    }
+  }
+
+  const handleBack = () => {
+    // Prefer real back navigation so scroll position / filters are preserved;
+    // fall back to home when the user landed on this page from a direct URL.
+    if (window.history.length > 1) {
+      navigate(-1)
+    } else {
+      navigate('/')
+    }
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       <div className="max-w-3xl mx-auto px-4 py-6">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleBack}
+          className="mb-4 -ml-2 rounded-full text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1.5" />
+          Back
+        </Button>
         <Card className="w-full border border-slate-200 dark:border-slate-800">
           <CardHeader className="pb-3">
             <div className="flex items-start gap-3">
-              <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${getAvatarColor(opportunity.username).light} ${getAvatarColor(opportunity.username).dark} flex items-center justify-center ${getAvatarColor(opportunity.username).text} font-semibold text-base flex-shrink-0`}>
-                {getUsernameInitials(opportunity.username)}
-              </div>
+              <Avatar
+                username={opportunity.username}
+                avatarUrl={opportunity.avatar_url}
+                size={48}
+              />
               
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-1">
@@ -315,6 +405,18 @@ export default function OpportunityDetailPage() {
 
               {user && user.username !== opportunity.username && (
                 <div className="flex items-center gap-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSummarize}
+                    disabled={isSummarizing}
+                    title={showSummary ? 'Hide AI summary' : 'AI summary'}
+                    className={`rounded-full h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                      showSummary ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'
+                    }`}
+                  >
+                    {isSummarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  </Button>
                   {!isFollowing ? (
                     <Button
                       size="sm"
@@ -368,28 +470,41 @@ export default function OpportunityDetailPage() {
               )}
 
               {user && user.username === opportunity.username && (
-                <DropdownMenu
-                  trigger={
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 h-8 w-8 p-0"
-                      disabled={isDeleting}
-                    >
-                      <MoreVertical className="h-4 w-4" />
-                    </Button>
-                  }
-                  align="end"
-                >
-                  <DropdownMenuItem
-                    onClick={() => navigate(`/edit/${opportunity.id}`)}
-                    disabled={isDeleting}
-                    className="whitespace-nowrap"
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleSummarize}
+                    disabled={isSummarizing}
+                    title={showSummary ? 'Hide AI summary' : 'AI summary'}
+                    className={`rounded-full h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+                      showSummary ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'
+                    }`}
                   >
-                    <Edit2 className="h-4 w-4 mr-2" />
-                    Edit post
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
+                    {isSummarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                  </Button>
+                  <DropdownMenu
+                    trigger={
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="rounded-full hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-600 dark:text-slate-400 h-8 w-8 p-0"
+                        disabled={isDeleting}
+                      >
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    }
+                    align="end"
+                  >
+                    <DropdownMenuItem
+                      onClick={() => navigate(`/edit/${opportunity.id}`)}
+                      disabled={isDeleting}
+                      className="whitespace-nowrap"
+                    >
+                      <Edit2 className="h-4 w-4 mr-2" />
+                      Edit post
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
                     onClick={handleDeleteClick}
                     disabled={isDeleting}
                     destructive
@@ -399,6 +514,7 @@ export default function OpportunityDetailPage() {
                     Delete post
                   </DropdownMenuItem>
                 </DropdownMenu>
+                </div>
               )}
             </div>
           </CardHeader>
@@ -410,7 +526,49 @@ export default function OpportunityDetailPage() {
             <p className="text-base text-slate-700 dark:text-slate-300 leading-relaxed whitespace-pre-wrap">
               {opportunity.description}
             </p>
-            
+
+            {showSummary && (
+              <div className="mt-4 rounded-xl border border-blue-200 dark:border-blue-900/40 bg-blue-50/60 dark:bg-blue-950/30 px-4 py-3">
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <div className="flex items-center gap-1.5 text-blue-700 dark:text-blue-400 text-xs font-semibold uppercase tracking-wide">
+                    <Sparkles className="h-3.5 w-3.5" />
+                    AI summary
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowSummary(false)}
+                    className="text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 -mr-1 -mt-1 p-1 rounded-full hover:bg-blue-100 dark:hover:bg-blue-900/40"
+                    aria-label="Hide summary"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                {isSummarizing ? (
+                  <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                    Reading the post and comments...
+                  </p>
+                ) : summaryError ? (
+                  <p className="text-sm text-red-600 dark:text-red-400">{summaryError}</p>
+                ) : summary ? (
+                  <>
+                    <p className="text-sm text-slate-700 dark:text-slate-200 leading-relaxed whitespace-pre-wrap">
+                      {summary}
+                    </p>
+                    <p className="mt-2 text-[10px] text-slate-500 dark:text-slate-400">
+                      Generated from the post and {summaryCommentsCount}{' '}
+                      {summaryCommentsCount === 1 ? 'comment' : 'comments'}.
+                    </p>
+                  </>
+                ) : null}
+              </div>
+            )}
+
+            {opportunity.media && opportunity.media.length > 0 && (
+              <div className="mt-4">
+                <MediaGallery media={opportunity.media} variant="detail" />
+              </div>
+            )}
+
             {opportunity.link && (
               <div className="mt-4 space-y-2">
                 {opportunity.link.split(',').map((link, index) => {
@@ -526,21 +684,33 @@ export default function OpportunityDetailPage() {
                   {Array.isArray(comments) && comments.length > 0 ? (
                     <div className="space-y-4">
                       {comments.map((comment) => {
-                        const avatarColor = getAvatarColor(comment.username)
                         return (
                           <div key={comment.id} className="flex gap-3">
-                              <div className={`w-9 h-9 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-xs flex-shrink-0`}>
-                              {comment.username?.charAt(0).toUpperCase() || 'U'}
-                            </div>
+                            <Avatar
+                              username={comment.username}
+                              avatarUrl={comment.avatar_url}
+                              size={36}
+                            />
                             
                             <div className="flex-1">
                               <div className="bg-slate-100 dark:bg-slate-800 rounded-2xl px-4 py-2.5">
                                 <div className="font-semibold text-sm text-slate-900 dark:text-slate-100 mb-1">
                                   {comment.username || 'User'}
                                 </div>
-                                <p className="text-sm text-slate-700 dark:text-slate-300">
-                                  {comment.content}
-                                </p>
+                                {comment.content && (
+                                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                                    {comment.content}
+                                  </p>
+                                )}
+                                {comment.media && (
+                                  <div className={comment.content ? 'mt-2' : ''}>
+                                    <img
+                                      src={resolveMediaUrl(comment.media.thumbnail_url || comment.media.url)}
+                                      alt=""
+                                      className="rounded-lg max-h-72 object-contain bg-white dark:bg-slate-900"
+                                    />
+                                  </div>
+                                )}
                               </div>
                               <div className="flex items-center gap-3 mt-1 px-4">
                                 <span className="text-xs text-slate-500">
@@ -567,25 +737,81 @@ export default function OpportunityDetailPage() {
                   )}
 
                   <form onSubmit={handleSubmitComment} className="flex gap-3 pt-2">
-                    <div className="w-9 h-9 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-xs flex-shrink-0">
-                      {getUsernameInitials(user?.username)}
-                    </div>
-                    <div className="flex-1 flex gap-2">
-                      <Input
-                        placeholder="Write a comment..."
-                        value={newComment}
-                        onChange={(e) => setNewComment(e.target.value)}
-                        disabled={isSubmittingComment}
-                        className="rounded-full border-slate-300 dark:border-slate-700 focus-visible:ring-slate-400"
-                      />
-                      <Button
-                        type="submit"
-                        size="sm"
-                        disabled={isSubmittingComment || !newComment.trim()}
-                        className="rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
-                      >
-                        <Send className="h-4 w-4" />
-                      </Button>
+                    <Avatar
+                      username={user?.username || ''}
+                      avatarUrl={user?.avatar_url}
+                      size={36}
+                    />
+                    <div className="flex-1 flex flex-col gap-2">
+                      {commentMedia && (
+                        <div className="relative inline-block w-fit max-w-[180px]">
+                          <img
+                            src={resolveMediaUrl(commentMedia.thumbnail_url || commentMedia.url)}
+                            alt=""
+                            className="rounded-lg max-h-32 object-cover border border-slate-200 dark:border-slate-700"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setCommentMedia(null)}
+                            className="absolute -top-2 -right-2 bg-black/70 hover:bg-black/90 text-white rounded-full p-1"
+                            aria-label="Remove attachment"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      )}
+                      <div className="flex gap-2 items-center">
+                        <Input
+                          placeholder="Write a comment..."
+                          value={newComment}
+                          onChange={(e) => setNewComment(e.target.value)}
+                          disabled={isSubmittingComment}
+                          className="rounded-full border-slate-300 dark:border-slate-700 focus-visible:ring-slate-400"
+                        />
+                        <label
+                          className={`cursor-pointer rounded-full p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition ${
+                            isUploadingCommentMedia ? 'opacity-50 pointer-events-none' : ''
+                          }`}
+                          title="Attach image"
+                        >
+                          {isUploadingCommentMedia ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <ImageIcon className="h-4 w-4" />
+                          )}
+                          <input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/gif"
+                            className="hidden"
+                            disabled={isSubmittingComment || !!commentMedia}
+                            onChange={(e) => handleCommentFile(e.target.files?.[0])}
+                          />
+                        </label>
+                        <button
+                          ref={commentGifButtonRef}
+                          type="button"
+                          onClick={() => setShowCommentGifPicker((v) => !v)}
+                          disabled={isSubmittingComment || !!commentMedia}
+                          className="rounded-full p-2 text-slate-500 hover:text-blue-600 hover:bg-slate-100 dark:hover:bg-slate-800 transition disabled:opacity-50"
+                          title="Add a GIF"
+                        >
+                          <Smile className="h-4 w-4" />
+                        </button>
+                        <GifPicker
+                          open={showCommentGifPicker}
+                          triggerRef={commentGifButtonRef}
+                          onClose={() => setShowCommentGifPicker(false)}
+                          onPick={(m) => setCommentMedia(m)}
+                        />
+                        <Button
+                          type="submit"
+                          size="sm"
+                          disabled={isSubmittingComment || (!newComment.trim() && !commentMedia)}
+                          className="rounded-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-600 dark:hover:bg-blue-500 text-white"
+                        >
+                          <Send className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
                   </form>
                 </>

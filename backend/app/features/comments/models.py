@@ -2,11 +2,15 @@
 
 import uuid
 from datetime import datetime, timezone
+from typing import TYPE_CHECKING
 
-from sqlalchemy import String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import ForeignKey, String, Text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.connection import Base
+
+if TYPE_CHECKING:
+    from app.features.media.models import Media
 
 
 class Comment(Base):
@@ -35,12 +39,21 @@ class Comment(Base):
     # References
     opportunity_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
     user_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
-    
+
+    # Optional single media attachment (image or gif)
+    media_id: Mapped[str | None] = mapped_column(
+        String(36),
+        ForeignKey("media.id", ondelete="SET NULL"),
+        nullable=True,
+    )
+
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         default=lambda: datetime.now(timezone.utc),
         nullable=False
     )
-    
+
+    media: Mapped["Media | None"] = relationship("Media", foreign_keys=[media_id])
+
     def __repr__(self) -> str:
         return f"<Comment(id={self.id}, opportunity_id={self.opportunity_id}, user_id={self.user_id})>"

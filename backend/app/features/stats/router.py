@@ -76,10 +76,11 @@ def get_active_users(
             User.id,
             User.username,
             User.email,
+            User.avatar_url,
             func.count(Opportunity.id).label('posts_count')
         )
         .join(Opportunity, Opportunity.user_id == User.id)
-        .group_by(User.id, User.username, User.email)
+        .group_by(User.id, User.username, User.email, User.avatar_url)
     )
     
     # Filter out blocked users if current user is authenticated
@@ -103,7 +104,8 @@ def get_active_users(
             id=row.id,
             username=row.username,
             email=row.email,
-            posts_count=row.posts_count
+            avatar_url=row.avatar_url,
+            posts_count=row.posts_count,
         )
         for row in results
     ]

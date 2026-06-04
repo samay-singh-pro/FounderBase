@@ -10,10 +10,13 @@ from .schemas import (
     ChatRequest, ChatResponse,
     SuggestTitlesRequest, SuggestTitlesResponse,
     ImproveDescriptionRequest, ImproveDescriptionResponse,
-    RefineIdeaRequest, RefineIdeaResponse
+    RefineIdeaRequest, RefineIdeaResponse,
+    SummarizePostResponse,
 )
 from .service import ai_service
 from app.core.config import settings
+from app.features.comments.service import get_comments_by_opportunity
+from app.features.opportunities.service import get_opportunity_by_id
 
 router = APIRouter(prefix="/ai", tags=["ai"])
 
@@ -179,5 +182,58 @@ async def refine_idea(
         category=request.category,
         post_type=request.type
     )
-    
+
     return RefineIdeaResponse(**result)
+
+
+@router.post("/summarize-post/{opportunity_id}", response_model=SummarizePostResponse)
+async def summarize_post(
+    opportunity_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Summarize a post and its comment thread for the current user.
+
+    Server-side fetch keeps the prompt accurate (clients can't lie about which
+    comments exist) and lets us cap comment volume before calling Gemini.
+    """
+    if not settings.google_gemini_api_key:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="AI service is not configured.",
+        )
+
+    if not check_rate_limit(current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded.",
+        )
+
+    opportunity = get_opportunity_by_id(db, opportunity_id, current_user_id=str(current_user.id))
+    if opportunity is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Post not found",
+        )
+
+    # Pull up to 100 comments — service caps inside generate_content too.
+    comments, _total = get_comments_by_opportunity(
+        db=db,
+        opportunity_id=opportunity_id,
+        current_user_id=str(current_user.id),
+        skip=0,
+        limit=100,
+    )
+
+    result = await ai_service.summarize_post(
+        title=opportunity["title"],
+        description=opportunity["description"],
+        post_type=opportunity["type"],
+        category=opportunity["category"],
+        comments=[
+            {"username": c.get("username", ""), "content": c.get("content", "")}
+            for c in comments
+        ],
+    )
+
+    return SummarizePostResponse(**result)

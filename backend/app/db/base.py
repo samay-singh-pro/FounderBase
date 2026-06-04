@@ -10,7 +10,8 @@ from app.features.comments.models import Comment
 from app.features.follows.models import Follow
 from app.features.likes.models import OpportunityLike
 from app.features.opportunities.models import Opportunity
-from app.features.messages.models import Conversation, Message, MessageReaction, BlockedUser, MutedConversation
+from app.features.messages.models import Conversation, ConversationMember, Message, MessageReaction, BlockedUser, MutedConversation
 from app.features.settings.models import UserPrivacySettings
+from app.features.media.models import Media, opportunity_media
 
-__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark", "Follow", "Conversation", "Message", "MessageReaction", "BlockedUser", "MutedConversation", "UserPrivacySettings"]
+__all__ = ["Base", "User", "Opportunity", "Comment", "OpportunityLike", "OpportunityBookmark", "Follow", "Conversation", "ConversationMember", "Message", "MessageReaction", "BlockedUser", "MutedConversation", "UserPrivacySettings", "Media", "opportunity_media"]

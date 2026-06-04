@@ -62,6 +62,13 @@ export interface RefineIdeaResponse {
   error: string
 }
 
+export interface SummarizePostResponse {
+  success: boolean
+  summary: string
+  comments_considered: number
+  error: string
+}
+
 class AIService {
   /**
    * Chat with AI assistant about post creation
@@ -137,6 +144,40 @@ class AIService {
         improved: '',
         suggestions: [],
         error: error.response?.data?.detail || 'Failed to improve description. Please try again.'
+      }
+    }
+  }
+
+  /**
+   * Generate a concise summary of a post + its comment thread.
+   * Server-side fetches the comments so the client doesn't need to pass them.
+   */
+  async summarizePost(opportunityId: string): Promise<SummarizePostResponse> {
+    try {
+      const response = await api.post(`/api/v1/ai/summarize-post/${opportunityId}`)
+      return response.data
+    } catch (error: any) {
+      if (error.response?.status === 429) {
+        return {
+          success: false,
+          summary: '',
+          comments_considered: 0,
+          error: 'Rate limit exceeded. Please wait a few minutes.',
+        }
+      }
+      if (error.response?.status === 503) {
+        return {
+          success: false,
+          summary: '',
+          comments_considered: 0,
+          error: 'AI service is not configured.',
+        }
+      }
+      return {
+        success: false,
+        summary: '',
+        comments_considered: 0,
+        error: error.response?.data?.detail || 'Failed to summarize. Please try again.',
       }
     }
   }

@@ -3,6 +3,8 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from datetime import datetime
 from typing import Optional, Any
 
+from app.features.media.schemas import MediaPublic
+
 
 # ============================================================================
 # Message Schemas
@@ -10,12 +12,13 @@ from typing import Optional, Any
 
 class MessageBase(BaseModel):
     """Base message schema."""
-    content: str = Field(..., min_length=1, max_length=5000)
+    content: str = Field(default="", max_length=5000)
 
 
 class MessageCreate(MessageBase):
     """Schema for creating a message."""
     conversation_id: str
+    media_id: Optional[str] = None
 
 
 class MessageResponse(MessageBase):
@@ -28,6 +31,7 @@ class MessageResponse(MessageBase):
     is_deleted: bool = False
     created_at: datetime
     reactions: list['ReactionResponse'] = []
+    media: Optional[MediaPublic] = None
 
     @model_validator(mode='before')
     @classmethod
@@ -44,7 +48,8 @@ class MessageResponse(MessageBase):
                 'is_pinned': data.is_pinned,
                 'is_deleted': data.is_deleted,
                 'created_at': data.created_at,
-                'reactions': data._reaction_counts
+                'reactions': data._reaction_counts,
+                'media': MediaPublic.model_validate(data.media) if getattr(data, 'media', None) else None,
             }
             return result
         return data
@@ -90,21 +95,55 @@ class ConversationStart(BaseModel):
     """Schema for creating a conversation and optionally sending the first message."""
     recipient_id: str
     message: Optional[str] = Field(None, min_length=1, max_length=5000)
+    media_id: Optional[str] = None
+
+
+class GroupMemberPublic(BaseModel):
+    """A single member of a group chat (only used for is_group=True conversations)."""
+    user_id: str
+    username: str
+    avatar_url: Optional[str] = None
+    role: str  # "admin" | "member"
+    joined_at: Optional[datetime] = None
+
+
+class GroupCreate(BaseModel):
+    """Create a new group chat."""
+    name: str = Field(..., min_length=1, max_length=120)
+    member_ids: list[str] = Field(default_factory=list, description="User IDs to add as members (creator is added automatically as admin)")
+    avatar_url: Optional[str] = Field(default=None, max_length=1000)
+
+
+class GroupUpdate(BaseModel):
+    """Patch a group's name or avatar (admin only)."""
+    name: Optional[str] = Field(default=None, min_length=1, max_length=120)
+    avatar_url: Optional[str] = Field(default=None, max_length=1000)
+
+
+class GroupAddMembers(BaseModel):
+    """Add one or more members to an existing group (admin only)."""
+    member_ids: list[str] = Field(..., min_length=1)
 
 
 class ConversationResponse(BaseModel):
     """Schema for conversation response."""
     id: str
-    user1_id: str
-    user2_id: str
+    user1_id: Optional[str] = None  # null for groups
+    user2_id: Optional[str] = None  # null for groups
     status: str
     created_by_id: str
     created_at: datetime
     updated_at: datetime
-    
-    # Additional fields for UI
+
+    # Group identification — present (and non-null on the latter two) only when is_group is True.
+    is_group: bool = False
+    name: Optional[str] = None
+    avatar_url: Optional[str] = None
+
+    # Additional fields for UI — DM-specific (null for groups).
     other_user_id: Optional[str] = None
     other_user_username: Optional[str] = None
+    other_user_avatar_url: Optional[str] = None
     last_message: Optional[str] = None
     last_message_time: Optional[datetime] = None
     unread_count: Optional[int] = 0
@@ -112,6 +151,10 @@ class ConversationResponse(BaseModel):
     is_blocked: Optional[bool] = False
     is_blocked_by_me: Optional[bool] = False
     is_blocked_by_them: Optional[bool] = False
+
+    # Group-only: members list. Null/empty for DMs.
+    members: Optional[list[GroupMemberPublic]] = None
+    member_count: Optional[int] = None
 
     class Config:
         from_attributes = True

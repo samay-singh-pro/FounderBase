@@ -16,7 +16,12 @@ import { useWebSocket } from '@/hooks/useWebSocket'
 
 interface ConversationListItem {
   id: string
-  username: string
+  username: string  // For groups this holds the group name.
+  avatarUrl?: string | null
+  isGroup?: boolean
+  memberCount?: number | null
+  members?: import('@/lib/api').GroupMember[] | null
+  createdByIsMe?: boolean
   lastMessage: string
   timestamp: string
   unreadCount: number
@@ -24,7 +29,7 @@ interface ConversationListItem {
   lastSeen?: string // ISO timestamp of when user was last seen
   status?: 'pending' | 'accepted' | 'declined'
   createdById?: string
-  otherUserId: string // Store the actual user ID for online status lookups
+  otherUserId: string // Store the actual user ID for online status lookups (DM only)
   isMuted?: boolean
   isBlocked?: boolean
   isBlockedByMe?: boolean
@@ -41,12 +46,31 @@ interface ChatMessage {
   isPinned?: boolean
   isDeleted?: boolean
   reactions?: Array<{ emoji: string; count: number }>
+  media?: import('@/services/media.service').Media | null
+  senderId?: string
 }
 
 interface Follower {
   id: string
   username: string
+  avatarUrl?: string | null
   isOnline: boolean
+}
+
+// Tracks a CSS media query in React state so layout-dependent UI (e.g. the
+// group-info side panel vs. slide-over) can branch on the live viewport.
+function useMediaQuery(query: string): boolean {
+  const [matches, setMatches] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  )
+  useEffect(() => {
+    const mql = window.matchMedia(query)
+    const onChange = () => setMatches(mql.matches)
+    onChange()
+    mql.addEventListener('change', onChange)
+    return () => mql.removeEventListener('change', onChange)
+  }, [query])
+  return matches
 }
 
 export default function MessagesPage() {
@@ -66,6 +90,12 @@ export default function MessagesPage() {
   const activeConversationIdRef = useRef<string | null>(null)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [showBlockDialog, setShowBlockDialog] = useState(false)
+  const [showGroupInfo, setShowGroupInfo] = useState(false)
+  const [showDeleteGroupDialog, setShowDeleteGroupDialog] = useState(false)
+  // The group-info panel is a permanent sidebar at xl+ (Tailwind xl = 1280px).
+  // Below that it's hidden, so the options menu offers a slide-over instead —
+  // this keeps us from stacking a duplicate panel on top of the visible sidebar.
+  const isSidebarVisible = useMediaQuery('(min-width: 1280px)')
 
   const initDone = useRef(false)
 
@@ -86,17 +116,26 @@ export default function MessagesPage() {
           content: message.content,
           timestamp: message.created_at,
           isSent: message.sender_id === currentUser?.id,
+          senderId: message.sender_id,
           isDelivered: true,
           isRead: message.is_read,
           isPinned: message.is_pinned || false,
           isDeleted: message.is_deleted || false,
           reactions: message.reactions || [],
+          media: message.media || null,
         }
 
-        setConversationMessages(prev => ({
-          ...prev,
-          [conversationId]: [...(prev[conversationId] || []), newMessage],
-        }))
+        setConversationMessages(prev => {
+          const existing = prev[conversationId] || []
+          // Skip if we already have this message — media sends (e.g. GIFs) go
+          // over HTTP and get optimistically inserted, then the backend echoes
+          // the same message back over the WS, which would otherwise duplicate it.
+          if (existing.some(m => m.id === newMessage.id)) return prev
+          return {
+            ...prev,
+            [conversationId]: [...existing, newMessage],
+          }
+        })
 
         // Update last message in conversation list
         setConversations(prev => prev.map(conv => {
@@ -218,23 +257,30 @@ export default function MessagesPage() {
     ])
 
     const transformed: ConversationListItem[] = data.map(conv => {
-      const otherUserId = conv.other_user_id
+      const otherUserId = conv.other_user_id || ''
       const statusInfo = onlineStatus[otherUserId]
+      const isGroup = !!conv.is_group
       return {
         id: conv.id,
-        username: conv.other_user_username,
+        username: isGroup
+          ? (conv.name || 'Group chat')
+          : (conv.other_user_username || 'Unknown'),
+        avatarUrl: isGroup ? (conv.avatar_url ?? null) : (conv.other_user_avatar_url ?? null),
+        isGroup,
+        memberCount: conv.member_count ?? (conv.members ? conv.members.length : null),
+        members: conv.members ?? null,
         lastMessage: conv.last_message || 'No messages yet',
         timestamp: conv.last_message_time || conv.created_at,
         unreadCount: conv.unread_count,
-        isOnline: statusInfo?.is_online || false,
-        lastSeen: statusInfo?.last_seen,
+        isOnline: !isGroup && (statusInfo?.is_online || false),
+        lastSeen: !isGroup ? statusInfo?.last_seen : undefined,
         status: conv.status,
         createdById: conv.created_by_id,
         otherUserId: otherUserId,
         isMuted: conv.is_muted || false,
-        isBlocked: conv.is_blocked || false,
-        isBlockedByMe: conv.is_blocked_by_me || false,
-        isBlockedByThem: conv.is_blocked_by_them || false,
+        isBlocked: !isGroup && (conv.is_blocked || false),
+        isBlockedByMe: !isGroup && (conv.is_blocked_by_me || false),
+        isBlockedByThem: !isGroup && (conv.is_blocked_by_them || false),
       }
     })
 
@@ -311,11 +357,13 @@ export default function MessagesPage() {
         content: msg.content,
         timestamp: msg.created_at,
         isSent: msg.sender_id === currentUser?.id,
+        senderId: msg.sender_id,
         isDelivered: true,
         isRead: msg.is_read,
         isPinned: msg.is_pinned,
         isDeleted: msg.is_deleted,
         reactions: msg.reactions || [],
+        media: msg.media || null,
       }))
 
       setConversationMessages(prev => ({
@@ -349,13 +397,89 @@ export default function MessagesPage() {
     scrollToMessageFnRef.current = fn
   }, [])
 
-  const handleSendMessage = async (message: string) => {
-    if (!activeConversationId || !message.trim() || !isConnected) return
+  const handleSendMessage = async (message: string, mediaId?: string | null) => {
+    if (!activeConversationId) return
+    const hasMedia = !!mediaId
 
-    const success = wsSendMessage(activeConversationId, message)
+    // Text-only messages go through the websocket; media-bearing messages take
+    // the HTTP path because the WS protocol doesn't carry attachments today.
+    if (!hasMedia) {
+      if (!message.trim() || !isConnected) return
+      const success = wsSendMessage(activeConversationId, message)
+      if (!success) {
+        useToastStore.getState().error('Failed to send message. Please check your connection.')
+      }
+      return
+    }
 
-    if (!success) {
-      useToastStore.getState().error('Failed to send message. Please check your connection.')
+    try {
+      const sent = await messageApi.sendMessage(activeConversationId, message, mediaId)
+      const newMessage: ChatMessage = {
+        id: sent.id,
+        content: sent.content,
+        timestamp: sent.created_at,
+        isSent: true,
+        senderId: sent.sender_id,
+        isDelivered: true,
+        isRead: sent.is_read,
+        isPinned: sent.is_pinned,
+        isDeleted: sent.is_deleted,
+        reactions: sent.reactions || [],
+        media: sent.media || null,
+      }
+      setConversationMessages((prev) => {
+        const existing = prev[activeConversationId] || []
+        // Guard against the WS echo having already inserted this message.
+        if (existing.some((m) => m.id === newMessage.id)) return prev
+        return {
+          ...prev,
+          [activeConversationId]: [...existing, newMessage],
+        }
+      })
+      setConversations((prev) =>
+        prev.map((c) =>
+          c.id === activeConversationId
+            ? { ...c, lastMessage: sent.content || '[attachment]', timestamp: sent.created_at }
+            : c,
+        ),
+      )
+    } catch (err: any) {
+      useToastStore
+        .getState()
+        .error(err?.response?.data?.detail || 'Failed to send message')
+    }
+  }
+
+  const handleCreateGroup = async (params: {
+    name: string
+    member_ids: string[]
+    avatar_url?: string | null
+  }) => {
+    try {
+      const conversation = await messageApi.createGroup(params)
+      setShowNewChatModal(false)
+      setPendingRecipient(null)
+
+      const newConv: ConversationListItem = {
+        id: conversation.id,
+        username: conversation.name || 'Group chat',
+        avatarUrl: conversation.avatar_url ?? null,
+        isGroup: true,
+        memberCount: conversation.member_count ?? (conversation.members?.length ?? null),
+        members: conversation.members ?? null,
+        lastMessage: 'No messages yet',
+        timestamp: conversation.created_at || new Date().toISOString(),
+        unreadCount: 0,
+        isOnline: false,
+        status: (conversation.status as 'pending' | 'accepted' | 'declined') || 'accepted',
+        createdById: currentUser?.id,
+        otherUserId: '',
+      }
+
+      setConversations(prev => (prev.some(c => c.id === conversation.id) ? prev : [newConv, ...prev]))
+      setActiveConversationId(conversation.id)
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to create group')
     }
   }
 
@@ -371,6 +495,7 @@ export default function MessagesPage() {
       const newConv: ConversationListItem = {
         id: conversation.id,
         username: conversation.other_user_username || username,
+        avatarUrl: conversation.other_user_avatar_url ?? null,
         lastMessage: message || 'No messages yet',
         timestamp: conversation.created_at || new Date().toISOString(),
         unreadCount: 0,
@@ -395,6 +520,7 @@ export default function MessagesPage() {
             content: message,
             timestamp: new Date().toISOString(),
             isSent: true,
+            senderId: currentUser?.id,
             isDelivered: true,
             isRead: false,
           }],
@@ -572,6 +698,98 @@ export default function MessagesPage() {
     setShowBlockDialog(true)
   }
 
+  // -----------------------------------------------------------------
+  // Group chat actions. Each one re-syncs the active conversation in
+  // local state from the server's response so the sidebar updates live.
+  // -----------------------------------------------------------------
+
+  const applyConversationPatch = (conv: import('@/lib/api').Conversation) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === conv.id
+          ? {
+              ...c,
+              username: conv.is_group ? (conv.name || c.username) : c.username,
+              avatarUrl: conv.is_group ? (conv.avatar_url ?? null) : c.avatarUrl,
+              isGroup: !!conv.is_group,
+              memberCount: conv.member_count ?? (conv.members ? conv.members.length : c.memberCount ?? null),
+              members: conv.members ?? c.members ?? null,
+            }
+          : c,
+      ),
+    )
+  }
+
+  const handleUpdateGroup = async (params: { name?: string; avatar_url?: string | null }) => {
+    if (!activeConversationId) return
+    try {
+      const updated = await messageApi.updateGroup(activeConversationId, params)
+      applyConversationPatch(updated)
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to update group')
+    }
+  }
+
+  const handleAddGroupMembers = async (memberIds: string[]) => {
+    if (!activeConversationId) return
+    try {
+      const updated = await messageApi.addGroupMembers(activeConversationId, memberIds)
+      applyConversationPatch(updated)
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to add members')
+    }
+  }
+
+  const handleRemoveGroupMember = async (userId: string) => {
+    if (!activeConversationId) return
+    try {
+      const result = await messageApi.removeGroupMember(activeConversationId, userId)
+      if ('members' in result) {
+        applyConversationPatch(result as import('@/lib/api').Conversation)
+      }
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to remove member')
+    }
+  }
+
+  const handleLeaveGroup = async () => {
+    if (!activeConversationId || !currentUser?.id) return
+    try {
+      await messageApi.removeGroupMember(activeConversationId, currentUser.id)
+      // Drop the conversation from local state and clear the active view.
+      setConversations((prev) => prev.filter((c) => c.id !== activeConversationId))
+      setConversationMessages((prev) => {
+        const next = { ...prev }
+        delete next[activeConversationId]
+        return next
+      })
+      setShowGroupInfo(false)
+      setActiveConversationId(null)
+    } catch (err: any) {
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to leave group')
+    }
+  }
+
+  const confirmDeleteGroup = async () => {
+    if (!activeConversationId) return
+    try {
+      await messageApi.deleteGroup(activeConversationId)
+      setConversations((prev) => prev.filter((c) => c.id !== activeConversationId))
+      setConversationMessages((prev) => {
+        const next = { ...prev }
+        delete next[activeConversationId]
+        return next
+      })
+      setShowDeleteGroupDialog(false)
+      setShowGroupInfo(false)
+      setActiveConversationId(null)
+      useToastStore.getState().success('Group deleted')
+    } catch (err: any) {
+      setShowDeleteGroupDialog(false)
+      useToastStore.getState().error(err?.response?.data?.detail || 'Failed to delete group')
+    }
+  }
+
   const confirmBlockUser = async () => {
     if (!activeConversationId) return
 
@@ -649,6 +867,7 @@ export default function MessagesPage() {
       const transformed: Follower[] = followingUsers.map((user: any) => ({
         id: user.id,
         username: user.username,
+        avatarUrl: user.avatar_url ?? null,
         isOnline: false,
       }))
 
@@ -675,7 +894,11 @@ export default function MessagesPage() {
   return (
     <div className="h-[calc(100vh-65px)] bg-slate-50 dark:bg-slate-950 bg-page-soft">
       <div className="h-full max-w-[1800px] mx-auto">
-        <div className="grid grid-cols-1 md:grid-cols-[380px_1fr] xl:grid-cols-[380px_1fr_340px] h-full">
+        <div
+          className={`grid grid-cols-1 md:grid-cols-[380px_1fr] h-full ${
+            activeConversationId ? 'xl:grid-cols-[380px_1fr_340px]' : ''
+          }`}
+        >
           <div className={`${activeConversationId ? 'hidden md:block' : 'block'} relative h-full overflow-hidden`}>
             <ConversationList
               conversations={conversations}
@@ -697,6 +920,11 @@ export default function MessagesPage() {
             {activeConversation && activeConversationId ? (
               <ChatThread
                 username={activeConversation.username}
+                avatarUrl={activeConversation.avatarUrl}
+                isGroup={activeConversation.isGroup}
+                memberCount={activeConversation.memberCount}
+                members={activeConversation.members}
+                conversationId={activeConversationId}
                 messages={conversationMessages[activeConversationId] || []}
                 onSendMessage={handleSendMessage}
                 onBack={() => setActiveConversationId(null)}
@@ -714,8 +942,11 @@ export default function MessagesPage() {
                 onReactToMessage={handleReactToMessage}
                 onDeleteConversation={handleDeleteConversation}
                 onMuteConversation={handleMuteConversation}
-                onBlockUser={handleBlockUser}
-                onViewProfile={handleViewProfile}
+                onBlockUser={activeConversation.isGroup ? undefined : handleBlockUser}
+                onViewProfile={activeConversation.isGroup ? undefined : handleViewProfile}
+                onOpenGroupInfo={activeConversation.isGroup && !isSidebarVisible ? () => setShowGroupInfo(true) : undefined}
+                onLeaveGroup={activeConversation.isGroup ? handleLeaveGroup : undefined}
+                onDeleteGroup={activeConversation.isGroup ? () => setShowDeleteGroupDialog(true) : undefined}
                 onScrollToMessage={handleScrollToMessageCallback}
                 isMuted={activeConversation.isMuted}
                 isBlocked={activeConversation.isBlocked}
@@ -755,6 +986,14 @@ export default function MessagesPage() {
                     content: m.content,
                     timestamp: m.timestamp
                   }))}
+                messages={(conversationMessages[activeConversationId] || [])
+                  .filter(m => !m.isDeleted)
+                  .map(m => ({
+                    id: m.id,
+                    content: m.content,
+                    timestamp: m.timestamp,
+                    media: m.media,
+                  }))}
                 onScrollToMessage={scrollToMessageFnRef.current || undefined}
                 isMuted={activeConversation.isMuted}
                 onMuteConversation={handleMuteConversation}
@@ -762,10 +1001,65 @@ export default function MessagesPage() {
                 isBlockedByMe={activeConversation.isBlockedByMe}
                 isBlockedByThem={activeConversation.isBlockedByThem}
                 onBlockUser={handleBlockUser}
+                isGroup={activeConversation.isGroup}
+                groupName={activeConversation.isGroup ? activeConversation.username : null}
+                groupAvatarUrl={activeConversation.isGroup ? activeConversation.avatarUrl : null}
+                members={activeConversation.members}
+                currentUserId={currentUser?.id}
+                followers={followers.map((f) => ({ id: f.id, username: f.username, avatarUrl: f.avatarUrl }))}
+                onUpdateGroup={handleUpdateGroup}
+                onAddMembers={handleAddGroupMembers}
+                onRemoveMember={handleRemoveGroupMember}
+                onLeaveGroup={handleLeaveGroup}
+                onDeleteGroup={activeConversation.isGroup ? () => setShowDeleteGroupDialog(true) : undefined}
               />
             </div>
           )}
         </div>
+
+        {/* Group Info slide-over — only when the permanent sidebar is hidden,
+            so we never stack a duplicate panel over the visible one. */}
+        {showGroupInfo && !isSidebarVisible && activeConversation && activeConversationId && (
+          <div className="fixed inset-0 z-50 flex justify-end xl:hidden">
+            <div
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setShowGroupInfo(false)}
+            />
+            <div className="relative w-full max-w-[360px] h-full shadow-2xl">
+              <ChatInfo
+                username={activeConversation.username}
+                userId={activeConversation.otherUserId}
+                isOnline={activeConversation.isOnline}
+                lastSeen={activeConversation.lastSeen}
+                pinnedMessages={(conversationMessages[activeConversationId] || [])
+                  .filter(m => m.isPinned && !m.isDeleted)
+                  .map(m => ({ id: m.id, content: m.content, timestamp: m.timestamp }))}
+                messages={(conversationMessages[activeConversationId] || [])
+                  .filter(m => !m.isDeleted)
+                  .map(m => ({ id: m.id, content: m.content, timestamp: m.timestamp, media: m.media }))}
+                onScrollToMessage={scrollToMessageFnRef.current || undefined}
+                isMuted={activeConversation.isMuted}
+                onMuteConversation={handleMuteConversation}
+                isBlocked={activeConversation.isBlocked}
+                isBlockedByMe={activeConversation.isBlockedByMe}
+                isBlockedByThem={activeConversation.isBlockedByThem}
+                onBlockUser={handleBlockUser}
+                isGroup={activeConversation.isGroup}
+                groupName={activeConversation.isGroup ? activeConversation.username : null}
+                groupAvatarUrl={activeConversation.isGroup ? activeConversation.avatarUrl : null}
+                members={activeConversation.members}
+                currentUserId={currentUser?.id}
+                followers={followers.map((f) => ({ id: f.id, username: f.username, avatarUrl: f.avatarUrl }))}
+                onUpdateGroup={handleUpdateGroup}
+                onAddMembers={handleAddGroupMembers}
+                onRemoveMember={handleRemoveGroupMember}
+                onLeaveGroup={handleLeaveGroup}
+                onDeleteGroup={activeConversation.isGroup ? () => setShowDeleteGroupDialog(true) : undefined}
+                onClose={() => setShowGroupInfo(false)}
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       <NewChatModal
@@ -775,6 +1069,7 @@ export default function MessagesPage() {
           setPendingRecipient(null)
         }}
         onSelectUser={handleNewChat}
+        onCreateGroup={handleCreateGroup}
         followers={followers}
         preselectedUser={pendingRecipient}
       />
@@ -832,6 +1127,34 @@ export default function MessagesPage() {
               onClick={confirmBlockUser}
             >
               {activeConversation?.isBlockedByMe ? 'Unblock' : 'Block'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Group Confirmation Dialog */}
+      <Dialog open={showDeleteGroupDialog} onOpenChange={setShowDeleteGroupDialog}>
+        <DialogContent>
+          <DialogHeader onClose={() => setShowDeleteGroupDialog(false)}>
+            <DialogTitle>Delete Group</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete{' '}
+              <strong>{activeConversation?.username}</strong>? This permanently removes the
+              group and all its messages for everyone. This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowDeleteGroupDialog(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDeleteGroup}
+            >
+              Delete Group
             </Button>
           </DialogFooter>
         </DialogContent>

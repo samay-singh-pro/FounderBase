@@ -1,14 +1,17 @@
 import api from '@/lib/api'
+import type { Media } from './media.service'
 
 export interface Comment {
   id: string
   content: string
   user_id: string
   username: string
+  avatar_url?: string | null
   opportunity_id: string
   created_at: string
   updated_at?: string
   is_owner: boolean
+  media?: Media | null
 }
 
 export interface CommentsResponse {
@@ -18,6 +21,7 @@ export interface CommentsResponse {
 
 export interface CreateCommentData {
   content: string
+  media_id?: string | null
 }
 
 export const commentsService = {

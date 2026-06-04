@@ -5,27 +5,38 @@ from datetime import datetime
 from sqlalchemy import or_, and_, func, case, literal
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.features.comments.models import Comment
 from app.features.likes.models import OpportunityLike
 from app.features.bookmarks.models import OpportunityBookmark
 from app.features.follows.models import Follow
+from app.features.media.service import assert_owned as assert_media_owned
 from app.features.opportunities.models import Opportunity
 from app.features.opportunities.schemas import OpportunityCreate, OpportunityUpdate
 from app.features.auth.models import User
+from fastapi import HTTPException, status as http_status
 
 
 def create_opportunity(db: Session, user_id: str, data: OpportunityCreate) -> Opportunity:
     """
     Create a new opportunity.
-    
+
     Args:
         db: Database session
         user_id: ID of user creating the opportunity
         data: Validated opportunity data
-        
+
     Returns:
         Created Opportunity object
     """
+    if len(data.media_ids) > settings.media_max_per_post:
+        raise HTTPException(
+            status_code=http_status.HTTP_400_BAD_REQUEST,
+            detail=f"At most {settings.media_max_per_post} media items per post",
+        )
+
+    media_items = assert_media_owned(db, data.media_ids, user_id) if data.media_ids else []
+
     opportunity = Opportunity(
         title=data.title,
         description=data.description,
@@ -35,7 +46,9 @@ def create_opportunity(db: Session, user_id: str, data: OpportunityCreate) -> Op
         user_id=user_id,
         status="created",
     )
-    
+    if media_items:
+        opportunity.media = media_items
+
     db.add(opportunity)
     db.commit()
     db.refresh(opportunity)
@@ -81,10 +94,17 @@ def update_opportunity(
         opportunity.category = data.category
     if data.link is not None:
         opportunity.link = data.link
-    
+    if data.media_ids is not None:
+        if len(data.media_ids) > settings.media_max_per_post:
+            raise HTTPException(
+                status_code=http_status.HTTP_400_BAD_REQUEST,
+                detail=f"At most {settings.media_max_per_post} media items per post",
+            )
+        opportunity.media = assert_media_owned(db, data.media_ids, user_id) if data.media_ids else []
+
     db.commit()
     db.refresh(opportunity)
-    
+
     return opportunity
 
 
@@ -205,6 +225,7 @@ def get_opportunity_by_id(
     query = db.query(
         Opportunity,
         User.username,
+        User.avatar_url,
         func.coalesce(likes_count_subq.c.likes_count, 0).label('likes_count'),
         func.coalesce(comments_count_subq.c.comments_count, 0).label('comments_count'),
     ).join(User, Opportunity.user_id == User.id).filter(Opportunity.id == opportunity_id)
@@ -252,10 +273,11 @@ def get_opportunity_by_id(
     
     opp = result[0]  # Opportunity object
     username = result[1]  # Username from join
-    
+    avatar_url = result[2]  # Avatar URL from join
+
     # Check if following using pre-fetched set (O(1) lookup)
     is_following = str(opp.user_id) in following_user_ids
-    
+
     return {
         'id': opp.id,
         'title': opp.title,
@@ -265,13 +287,15 @@ def get_opportunity_by_id(
         'link': opp.link,
         'user_id': opp.user_id,
         'username': username,
+        'avatar_url': avatar_url,
         'created_at': opp.created_at,
         'status': opp.status,
-        'likes_count': result[2],  # likes_count
-        'comments_count': result[3],  # comments_count
-        'is_liked': result[4],  # is_liked
-        'is_bookmarked': result[5],  # is_bookmarked
+        'likes_count': result[3],  # likes_count
+        'comments_count': result[4],  # comments_count
+        'is_liked': result[5],  # is_liked
+        'is_bookmarked': result[6],  # is_bookmarked
         'is_following': is_following,  # Checked from pre-fetched set
+        'media': list(opp.media),  # Attached images/gifs/videos
     }
 
 
@@ -388,6 +412,7 @@ def get_opportunities(
     query = db.query(
         Opportunity,
         User.username,
+        User.avatar_url,
         func.coalesce(likes_count_subq.c.likes_count, 0).label('likes_count'),
         func.coalesce(comments_count_subq.c.comments_count, 0).label('comments_count'),
     ).join(User, Opportunity.user_id == User.id)
@@ -482,11 +507,12 @@ def get_opportunities(
     opportunities = []
     for row in results:
         opp = row[0]  # Opportunity object
-        username = row[1]  # Username from join
-        
+        username = row[1]
+        avatar_url = row[2]
+
         # Check if following using pre-fetched set (O(1) lookup)
         is_following = str(opp.user_id) in following_user_ids
-        
+
         opportunities.append({
             'id': opp.id,
             'title': opp.title,
@@ -496,13 +522,15 @@ def get_opportunities(
             'link': opp.link,
             'user_id': opp.user_id,
             'username': username,
+            'avatar_url': avatar_url,
             'created_at': opp.created_at,
             'status': opp.status,
-            'likes_count': row[2],  # likes_count
-            'comments_count': row[3],  # comments_count
-            'is_liked': row[4],  # is_liked
-            'is_bookmarked': row[5],  # is_bookmarked
-            'is_following': is_following,  # Checked from pre-fetched set
+            'likes_count': row[3],
+            'comments_count': row[4],
+            'is_liked': row[5],
+            'is_bookmarked': row[6],
+            'is_following': is_following,
+            'media': list(opp.media),
         })
     
     return opportunities, total

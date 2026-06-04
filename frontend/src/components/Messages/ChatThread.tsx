@@ -1,11 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button } from '@/components/ui/button'
-import { ArrowLeft, MoreVertical, Pin, X, BellOff, Bell, Shield, Ban, ShieldX, ChevronLeft, ChevronRight, User, Trash2 } from 'lucide-react'
+import { ArrowLeft, MoreVertical, Pin, X, BellOff, Bell, Shield, Ban, ShieldX, ChevronLeft, ChevronRight, User, Trash2, Users, LogOut } from 'lucide-react'
 import { Spinner } from '@/components/ui/spinner'
-import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import { MessageBubble } from './MessageBubble'
 import { MessageInput } from './MessageInput'
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu'
+
+import type { Media } from '@/services/media.service'
+import type { GroupMember } from '@/lib/api'
 
 interface Reaction {
   emoji: string
@@ -22,12 +25,19 @@ interface Message {
   isPinned?: boolean
   isDeleted?: boolean
   reactions?: Reaction[]
+  media?: Media | null
+  senderId?: string
 }
 
 interface ChatThreadProps {
   username: string
+  avatarUrl?: string | null
+  isGroup?: boolean
+  memberCount?: number | null
+  members?: GroupMember[] | null
+  conversationId?: string | null
   messages: Message[]
-  onSendMessage: (message: string) => void
+  onSendMessage: (message: string, mediaId?: string | null) => void
   onBack?: () => void
   showBackButton?: boolean
   isOnline?: boolean
@@ -45,6 +55,9 @@ interface ChatThreadProps {
   onMuteConversation?: () => void
   onBlockUser?: () => void
   onViewProfile?: () => void
+  onOpenGroupInfo?: () => void
+  onLeaveGroup?: () => void
+  onDeleteGroup?: () => void
   onScrollToMessage?: (scrollFn: (messageId: string) => void) => void
   isMuted?: boolean
   isBlocked?: boolean
@@ -87,9 +100,14 @@ function formatMessageDate(dateStr: string): string {
   }
 }
 
-export function ChatThread({ 
-  username, 
-  messages, 
+export function ChatThread({
+  username,
+  avatarUrl,
+  isGroup = false,
+  memberCount,
+  members,
+  conversationId,
+  messages,
   onSendMessage,
   onBack,
   showBackButton = false,
@@ -108,6 +126,9 @@ export function ChatThread({
   onMuteConversation,
   onBlockUser,
   onViewProfile,
+  onOpenGroupInfo,
+  onLeaveGroup,
+  onDeleteGroup,
   onScrollToMessage,
   isMuted = false,
   isBlocked = false,
@@ -115,14 +136,31 @@ export function ChatThread({
   isBlockedByThem = false
 }: ChatThreadProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const messagesContainerRef = useRef<HTMLDivElement>(null)
   const messageRefs = useRef<{ [key: string]: HTMLDivElement | null }>({})
-  const avatarColor = getAvatarColor(username)
+  const lastConversationIdRef = useRef<string | null | undefined>(undefined)
+  const hasInitialScrolledRef = useRef(false)
+  // Build once per render: senderId -> member metadata. Lets bubbles look up
+  // the sender's name/avatar without an extra API call per message.
+  const memberLookup = useMemo(() => {
+    const m = new Map<string, GroupMember>()
+    for (const member of members || []) m.set(member.user_id, member)
+    return m
+  }, [members])
   const [showPinnedBanner, setShowPinnedBanner] = useState(true)
   const [currentPinnedIndex, setCurrentPinnedIndex] = useState(0)
 
   const isRequester = createdById === currentUserId
+  const isGroupAdmin = isGroup && !!currentUserId &&
+    (members || []).some((m) => m.user_id === currentUserId && m.role === 'admin')
   const isPending = status === 'pending'
-  const activeStatus = isBlocked ? 'Unavailable' : (isOnline ? 'Active now' : formatLastSeen(lastSeen))
+  const activeStatus = isGroup
+    ? (typeof memberCount === 'number' ? `${memberCount} member${memberCount === 1 ? '' : 's'}` : 'Group chat')
+    : isBlocked
+    ? 'Unavailable'
+    : isOnline
+    ? 'Active now'
+    : formatLastSeen(lastSeen)
   const isRecipient = isPending && !isRequester
   
   // Get pinned messages (sorted by timestamp, newest first)
@@ -167,9 +205,50 @@ export function ChatThread({
     }
   }
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  // Scroll-to-bottom behavior:
+  // - First render of a conversation (or switching to a new one): jump instantly,
+  //   pre-paint, so the user never sees the chat start at the top.
+  // - Subsequent updates within the same conversation (new incoming/outgoing
+  //   messages): smooth-scroll so they can follow new activity.
+  //
+  // We gate on !isLoadingMessages because the parent commits `messages` BEFORE
+  // it flips the loading flag off — without this check the scroll fires while
+  // the container is still rendering a spinner, and once the spinner is replaced
+  // by the message list the effect won't re-run (deps unchanged), so the user
+  // would land at the top of the chat.
+  useLayoutEffect(() => {
+    if (lastConversationIdRef.current !== conversationId) {
+      lastConversationIdRef.current = conversationId
+      hasInitialScrolledRef.current = false
+    }
+
+    if (isLoadingMessages) return
+
+    const container = messagesContainerRef.current
+    if (!container || messages.length === 0) return
+
+    if (!hasInitialScrolledRef.current) {
+      container.scrollTop = container.scrollHeight
+      hasInitialScrolledRef.current = true
+
+      // Re-pin to the bottom once any images in the thread finish loading —
+      // they cause layout shift after the synchronous scroll otherwise and
+      // leave the user a few hundred pixels short of the actual bottom.
+      const imgs = Array.from(container.querySelectorAll('img'))
+      const pending = imgs.filter((img) => !img.complete)
+      pending.forEach((img) => {
+        const settle = () => {
+          if (lastConversationIdRef.current === conversationId) {
+            container.scrollTop = container.scrollHeight
+          }
+        }
+        img.addEventListener('load', settle, { once: true })
+        img.addEventListener('error', settle, { once: true })
+      })
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+    }
+  }, [messages, conversationId, isLoadingMessages])
 
   return (
     <div className="flex flex-col h-full bg-white dark:bg-slate-900">
@@ -186,14 +265,12 @@ export function ChatThread({
             </Button>
           )}
           
-          <div className="relative">
-            <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm`}>
-              {getUsernameInitials(username)}
-            </div>
-            {isOnline && !isBlocked && (
-              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
-            )}
-          </div>
+          <Avatar
+            username={username}
+            avatarUrl={avatarUrl}
+            size={40}
+            online={!isGroup && isOnline && !isBlocked}
+          />
           
           <div>
             <h3 className="font-semibold text-slate-900 dark:text-slate-100">
@@ -217,47 +294,87 @@ export function ChatThread({
           }
           align="end"
         >
-          {onViewProfile && (
-            <DropdownMenuItem onClick={onViewProfile}>
-              <User className="h-4 w-4 mr-2" />
-              Profile
-            </DropdownMenuItem>
-          )}
-          {onMuteConversation && (
-            <DropdownMenuItem onClick={onMuteConversation}>
-              {isMuted ? (
-                <>
-                  <Bell className="h-4 w-4 mr-2" />
-                  Unmute
-                </>
-              ) : (
-                <>
-                  <BellOff className="h-4 w-4 mr-2" />
-                  Mute
-                </>
+          {isGroup ? (
+            <>
+              {onOpenGroupInfo && (
+                <DropdownMenuItem onClick={onOpenGroupInfo}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Group info
+                </DropdownMenuItem>
               )}
-            </DropdownMenuItem>
-          )}
-          {onDeleteConversation && (
-            <DropdownMenuItem onClick={onDeleteConversation} destructive>
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete Chat
-            </DropdownMenuItem>
-          )}
-          {onBlockUser && (
-            <DropdownMenuItem onClick={onBlockUser} destructive>
-              {isBlockedByMe ? (
-                <>
-                  <Shield className="h-4 w-4 mr-2" />
-                  Unblock
-                </>
-              ) : (
-                <>
-                  <Ban className="h-4 w-4 mr-2" />
-                  Block
-                </>
+              {onMuteConversation && (
+                <DropdownMenuItem onClick={onMuteConversation}>
+                  {isMuted ? (
+                    <>
+                      <Bell className="h-4 w-4 mr-2" />
+                      Unmute
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="h-4 w-4 mr-2" />
+                      Mute
+                    </>
+                  )}
+                </DropdownMenuItem>
               )}
-            </DropdownMenuItem>
+              {onLeaveGroup && (
+                <DropdownMenuItem onClick={onLeaveGroup} destructive>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  Leave group
+                </DropdownMenuItem>
+              )}
+              {isGroupAdmin && onDeleteGroup && (
+                <DropdownMenuItem onClick={onDeleteGroup} destructive>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete group
+                </DropdownMenuItem>
+              )}
+            </>
+          ) : (
+            <>
+              {onViewProfile && (
+                <DropdownMenuItem onClick={onViewProfile}>
+                  <User className="h-4 w-4 mr-2" />
+                  Profile
+                </DropdownMenuItem>
+              )}
+              {onMuteConversation && (
+                <DropdownMenuItem onClick={onMuteConversation}>
+                  {isMuted ? (
+                    <>
+                      <Bell className="h-4 w-4 mr-2" />
+                      Unmute
+                    </>
+                  ) : (
+                    <>
+                      <BellOff className="h-4 w-4 mr-2" />
+                      Mute
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
+              {onDeleteConversation && (
+                <DropdownMenuItem onClick={onDeleteConversation} destructive>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete Chat
+                </DropdownMenuItem>
+              )}
+              {onBlockUser && (
+                <DropdownMenuItem onClick={onBlockUser} destructive>
+                  {isBlockedByMe ? (
+                    <>
+                      <Shield className="h-4 w-4 mr-2" />
+                      Unblock
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="h-4 w-4 mr-2" />
+                      Block
+                    </>
+                  )}
+                </DropdownMenuItem>
+              )}
+            </>
           )}
         </DropdownMenu>
       </div>
@@ -348,7 +465,7 @@ export function ChatThread({
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
+      <div ref={messagesContainerRef} className="flex-1 overflow-y-auto bg-slate-50 dark:bg-slate-950">
         {isLoadingMessages ? (
           <div className="flex items-center justify-center h-full">
             <Spinner size="lg" />
@@ -372,8 +489,19 @@ export function ChatThread({
                       </div>
                     </div>
                   )}
-                  <MessageBubble 
-                    {...message} 
+                  <MessageBubble
+                    {...message}
+                    senderName={
+                      isGroup && message.senderId
+                        ? memberLookup.get(message.senderId)?.username ?? null
+                        : null
+                    }
+                    senderAvatarUrl={
+                      isGroup && message.senderId
+                        ? memberLookup.get(message.senderId)?.avatar_url ?? null
+                        : null
+                    }
+                    showSenderHeader={isGroup}
                     onDelete={onDeleteMessage}
                     onPin={onPinMessage}
                     onReact={onReactToMessage}
@@ -385,9 +513,12 @@ export function ChatThread({
           </div>
         ) : (
           <div className="flex flex-col items-center justify-center h-full text-center">
-            <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-bold text-2xl mb-4`}>
-              {getUsernameInitials(username)}
-            </div>
+            <Avatar
+              username={username}
+              avatarUrl={avatarUrl}
+              size={64}
+              className="mb-4"
+            />
             <h3 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-1">
               Start a conversation with {username}
             </h3>

@@ -6,6 +6,8 @@ from typing import Literal, Any
 
 from pydantic import BaseModel, Field, field_serializer
 
+from app.features.media.schemas import MediaPublic
+
 
 class SortField(str, Enum):
     """Allowed fields for sorting opportunities"""
@@ -49,7 +51,11 @@ class OpportunityCreate(BaseModel):
         max_length=500,
         description="Optional external URL link related to this opportunity"
     )
-    
+    media_ids: list[str] = Field(
+        default_factory=list,
+        description="IDs of media items (uploaded via /media/upload) to attach"
+    )
+
     model_config = {
         "json_schema_extra": {
             "examples": [
@@ -99,6 +105,10 @@ class OpportunityUpdate(BaseModel):
         max_length=500,
         description="Optional external URL link related to this opportunity"
     )
+    media_ids: list[str] | None = Field(
+        default=None,
+        description="Replace attached media with these IDs (omit to leave unchanged)"
+    )
 
 
 class OpportunityPublic(BaseModel):
@@ -114,6 +124,7 @@ class OpportunityPublic(BaseModel):
     link: str | None = None
     user_id: str
     username: str
+    avatar_url: str | None = None
     created_at: datetime
     status: str
     
@@ -123,7 +134,8 @@ class OpportunityPublic(BaseModel):
     is_liked: bool = Field(default=False, description="Whether current user has liked this opportunity")
     is_bookmarked: bool = Field(default=False, description="Whether current user has bookmarked this opportunity")
     is_following: bool = Field(default=False, description="Whether current user is following the opportunity author")
-    
+    media: list[MediaPublic] = Field(default_factory=list, description="Attached media items (images, gifs, videos)")
+
     @field_serializer('created_at')
     def serialize_datetime(self, dt: datetime, _info: Any) -> str:
         """Serialize datetime to ISO format with UTC timezone"""

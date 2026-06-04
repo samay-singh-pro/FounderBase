@@ -11,6 +11,7 @@ from app.db.connection import Base
 
 if TYPE_CHECKING:
     from app.features.likes.models import OpportunityLike
+    from app.features.media.models import Media
 
 
 class Opportunity(Base):
@@ -54,6 +55,11 @@ class Opportunity(Base):
     
     # Relationships
     likes: Mapped[list["OpportunityLike"]] = relationship("OpportunityLike", back_populates="opportunity", cascade="all, delete-orphan")
+    media: Mapped[list["Media"]] = relationship(
+        "Media",
+        secondary="opportunity_media",
+        order_by="opportunity_media.c.position",
+    )
     
     def __repr__(self) -> str:
         return f"<Opportunity(id={self.id}, title={self.title[:30]}, type={self.type})>"

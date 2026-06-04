@@ -10,6 +10,7 @@ from app.db.connection import get_db
 from app.features.auth.dependencies import get_current_user, get_current_user_optional
 from app.features.auth.models import User
 from app.features.opportunities import service
+from app.features.media.schemas import MediaPublic
 from app.features.opportunities.schemas import (
     OpportunityCreate,
     OpportunityUpdate,
@@ -48,7 +49,7 @@ def create_opportunity(
     """
     user_id = str(current_user.id)
     opportunity = service.create_opportunity(db, user_id, opportunity_data)
-    
+
     # Manually construct response with username
     return OpportunityPublic(
         id=str(opportunity.id),
@@ -59,12 +60,14 @@ def create_opportunity(
         link=opportunity.link,
         user_id=str(opportunity.user_id),
         username=current_user.username,
+        avatar_url=current_user.avatar_url,
         created_at=opportunity.created_at,
         status=opportunity.status,
         likes_count=0,
         comments_count=0,
         is_liked=False,
         is_bookmarked=False,
+        media=[MediaPublic.model_validate(m) for m in opportunity.media],
     )
 
 
@@ -107,12 +110,14 @@ def update_opportunity(
         link=opportunity.link,
         user_id=str(opportunity.user_id),
         username=current_user.username,
+        avatar_url=current_user.avatar_url,
         created_at=opportunity.created_at,
         status=opportunity.status,
         likes_count=0,  # Could query these if needed
         comments_count=0,
         is_liked=False,
         is_bookmarked=False,
+        media=[MediaPublic.model_validate(m) for m in opportunity.media],
     )
 
 

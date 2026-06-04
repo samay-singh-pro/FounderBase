@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useThemeStore, themeConfig, type Theme } from '@/stores/themeStore'
 import { LogOut, Moon, Sun, Plus, RefreshCw, ArrowLeft, MessageSquare, User, FileText, Bookmark, Users, Settings, ChevronDown, Palette, Check } from 'lucide-react'
 import { DropdownMenu, DropdownMenuItem } from './ui/dropdown-menu'
+import { Avatar } from './ui/avatar'
 import api from '@/lib/api'
 
 interface HeaderProps {
@@ -132,9 +133,11 @@ export default function Header({ onRefresh, isRefreshing = false, showBackButton
             align="end"
             trigger={
               <button className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors">
-                <div className="w-7 h-7 rounded-full bg-gradient-to-br from-blue-100 to-blue-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-semibold text-xs">
-                  {user?.username?.charAt(0).toUpperCase()}
-                </div>
+                <Avatar
+                  username={user?.username || ''}
+                  avatarUrl={user?.avatar_url}
+                  size={28}
+                />
                 <span className="hidden sm:inline text-sm font-medium text-slate-700 dark:text-slate-300">
                   {user?.username}
                 </span>

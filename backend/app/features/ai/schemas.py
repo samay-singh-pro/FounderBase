@@ -72,3 +72,11 @@ class RefineIdeaResponse(BaseModel):
     success: bool
     feedback: str = ""
     error: str = ""
+
+
+class SummarizePostResponse(BaseModel):
+    """Concise AI summary of a post plus its comment thread."""
+    success: bool
+    summary: str = ""
+    comments_considered: int = 0
+    error: str = ""

@@ -7,6 +7,9 @@ import { ConversationItem } from './ConversationItem'
 interface Conversation {
   id: string
   username: string
+  avatarUrl?: string | null
+  isGroup?: boolean
+  memberCount?: number | null
   lastMessage: string
   timestamp: string
   unreadCount: number

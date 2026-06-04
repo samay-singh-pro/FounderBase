@@ -14,6 +14,9 @@ from app.features.messages.schemas import (
     ConversationCreate,
     ConversationStart,
     ConversationResponse,
+    GroupCreate,
+    GroupUpdate,
+    GroupAddMembers,
     ReactionCreate,
     ReactionResponse,
     BlockUserResponse,
@@ -167,6 +170,111 @@ def create_or_get_conversation(
     return conv_dict
 
 
+@router.post("/groups", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
+def create_group(
+    data: GroupCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Create a group chat. The current user is added as admin; supplied
+    `member_ids` are added as regular members."""
+    conversation = MessageService.create_group(
+        db=db,
+        creator_id=current_user.id,
+        name=data.name,
+        member_ids=data.member_ids,
+        avatar_url=data.avatar_url,
+    )
+    return MessageService.get_conversation_with_metadata(
+        db=db,
+        conversation_id=conversation.id,
+        current_user_id=current_user.id,
+    )
+
+
+@router.patch("/groups/{conversation_id}", response_model=ConversationResponse)
+def update_group(
+    conversation_id: str,
+    data: GroupUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Rename a group or update its avatar (admin only)."""
+    MessageService.update_group(
+        db=db,
+        conversation_id=conversation_id,
+        requester_id=current_user.id,
+        name=data.name,
+        avatar_url=data.avatar_url,
+    )
+    return MessageService.get_conversation_with_metadata(
+        db=db,
+        conversation_id=conversation_id,
+        current_user_id=current_user.id,
+    )
+
+
+@router.post("/groups/{conversation_id}/members", response_model=ConversationResponse)
+def add_group_members(
+    conversation_id: str,
+    data: GroupAddMembers,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Add one or more members to a group (admin only)."""
+    MessageService.add_group_members(
+        db=db,
+        conversation_id=conversation_id,
+        requester_id=current_user.id,
+        member_ids=data.member_ids,
+    )
+    return MessageService.get_conversation_with_metadata(
+        db=db,
+        conversation_id=conversation_id,
+        current_user_id=current_user.id,
+    )
+
+
+@router.delete("/groups/{conversation_id}/members/{user_id}")
+def remove_group_member(
+    conversation_id: str,
+    user_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Remove a member from the group. Admins can remove anyone; non-admin
+    members can only remove themselves (= leave the group)."""
+    conv = MessageService.remove_group_member(
+        db=db,
+        conversation_id=conversation_id,
+        requester_id=current_user.id,
+        target_id=user_id,
+    )
+    # If the caller left, they no longer have access — return a minimal ack.
+    if user_id == current_user.id:
+        return {"left": True, "conversation_id": conversation_id}
+    return MessageService.get_conversation_with_metadata(
+        db=db,
+        conversation_id=conv.id,
+        current_user_id=current_user.id,
+    )
+
+
+@router.delete("/groups/{conversation_id}")
+def delete_group(
+    conversation_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Permanently delete a group and all of its messages (admin only)."""
+    MessageService.delete_group(
+        db=db,
+        conversation_id=conversation_id,
+        requester_id=current_user.id,
+    )
+    return {"deleted": True, "conversation_id": conversation_id}
+
+
 @router.post("/conversations/start", response_model=ConversationResponse, status_code=status.HTTP_201_CREATED)
 def start_conversation(
     data: ConversationStart,
@@ -180,10 +288,11 @@ def start_conversation(
         recipient_id=data.recipient_id
     )
 
-    if data.message:
+    if data.message or data.media_id:
         message_data = MessageCreate(
             conversation_id=conversation.id,
-            content=data.message
+            content=data.message or "",
+            media_id=data.media_id,
         )
         MessageService.send_message(
             db=db,
@@ -312,24 +421,71 @@ def get_messages(
 
 
 @router.post("", response_model=MessageResponse, status_code=status.HTTP_201_CREATED)
-def send_message(
+async def send_message(
     message_data: MessageCreate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
 ):
-    """Send a message in a conversation."""
-    print(f"\n=== SEND MESSAGE REQUEST ===")
-    print(f"Current User ID: {current_user.id}")
-    print(f"Conversation ID: {message_data.conversation_id}")
-    print(f"Message Content: {message_data.content[:50]}...")
-    
+    """Send a message in a conversation.
+
+    Used by clients (currently only when attaching media — text-only sends go
+    over the WebSocket). We still broadcast over the WS here so the recipient
+    sees the message immediately instead of having to refresh.
+    """
     message = MessageService.send_message(
         db=db,
         message_data=message_data,
         current_user_id=current_user.id
     )
-    
-    print(f"Message sent successfully - ID: {message.id}")
+
+    # Mirror the WS handler's broadcast so HTTP-sent messages (e.g. GIFs/images)
+    # land in the recipient's chat live, not on next refresh. For groups we
+    # broadcast to every member.
+    try:
+        conversation = MessageService.get_conversation_by_id(
+            db=db,
+            conversation_id=message.conversation_id,
+            current_user_id=current_user.id,
+        )
+        recipients = MessageService.get_recipient_ids(db, conversation)
+
+        created_at_iso = message.created_at.isoformat()
+        created_at_utc = created_at_iso if created_at_iso.endswith("Z") else created_at_iso + "Z"
+
+        media_payload = None
+        if message.media:
+            media_payload = {
+                "id": message.media.id,
+                "media_type": message.media.media_type,
+                "source": message.media.source,
+                "url": message.media.url,
+                "thumbnail_url": message.media.thumbnail_url,
+                "mime_type": message.media.mime_type,
+                "width": message.media.width,
+                "height": message.media.height,
+                "size_bytes": message.media.size_bytes,
+            }
+
+        ws_payload = {
+            "type": "message",
+            "id": message.id,
+            "conversation_id": message.conversation_id,
+            "sender_id": message.sender_id,
+            "content": message.content,
+            "is_read": message.is_read,
+            "is_pinned": message.is_pinned,
+            "is_deleted": message.is_deleted,
+            "created_at": created_at_utc,
+            "reactions": [],
+            "media": media_payload,
+        }
+
+        await manager.send_message_to_conversation(ws_payload, recipients)
+    except Exception as exc:
+        # Don't fail the HTTP request if the broadcast hiccups — the message is
+        # already persisted; recipients just won't get the live push.
+        print(f"WS broadcast failed for message {message.id}: {exc}")
+
     return message
 
 

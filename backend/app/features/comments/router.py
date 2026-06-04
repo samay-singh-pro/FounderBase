@@ -9,6 +9,7 @@ from app.features.auth.dependencies import get_current_user, get_current_user_op
 from app.features.auth.models import User
 from app.features.comments import service
 from app.features.comments.schemas import CommentCreate, CommentList, CommentPublic, CommentUpdate
+from app.features.media.schemas import MediaPublic
 from app.features.opportunities.service import get_opportunity_by_id
 
 router = APIRouter(tags=["Comments"])
@@ -56,8 +57,10 @@ def create_comment(
         opportunity_id=comment.opportunity_id,
         user_id=comment.user_id,
         username=current_user.username,
+        avatar_url=current_user.avatar_url,
         created_at=comment.created_at,
-        is_owner=True
+        is_owner=True,
+        media=MediaPublic.model_validate(comment.media) if comment.media else None,
     )
 
 

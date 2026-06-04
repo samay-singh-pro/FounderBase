@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button'
+import { Avatar } from '@/components/ui/avatar'
 import { DropdownMenu, DropdownMenuItem } from '@/components/ui/dropdown-menu'
-import { MoreVertical, UserPlus, UserCheck, MessageCircle, Edit2, Trash2 } from 'lucide-react'
+import { Loader2, MoreVertical, Sparkles, UserPlus, UserCheck, MessageCircle, Edit2, Trash2 } from 'lucide-react'
 import { formatDate } from '@/utils/date'
-import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
 
 interface UserHeaderProps {
   username: string
+  avatarUrl?: string | null
   createdAt: string
   category: string
   type: string
@@ -19,10 +20,14 @@ interface UserHeaderProps {
   onSendMessage: () => void
   onEdit?: () => void
   onDelete?: () => void
+  onSummarize?: () => void
+  isSummarizing?: boolean
+  isSummaryOpen?: boolean
 }
 
 export function UserHeader({
   username,
+  avatarUrl,
   createdAt,
   category,
   type,
@@ -36,15 +41,29 @@ export function UserHeader({
   onSendMessage,
   onEdit,
   onDelete,
+  onSummarize,
+  isSummarizing = false,
+  isSummaryOpen = false,
 }: UserHeaderProps) {
-  const avatarColor = getAvatarColor(username)
+  const summarizeButton = onSummarize ? (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={onSummarize}
+      disabled={isSummarizing}
+      title={isSummaryOpen ? 'Hide AI summary' : 'AI summary'}
+      className={`rounded-full h-8 w-8 p-0 hover:bg-slate-100 dark:hover:bg-slate-800 ${
+        isSummaryOpen ? 'text-blue-600 dark:text-blue-400' : 'text-slate-600 dark:text-slate-400'
+      }`}
+    >
+      {isSummarizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+    </Button>
+  ) : null
 
   return (
     <div className="flex items-start gap-3">
-      {/* User Avatar */}
-      <div className={`w-10 h-10 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm flex-shrink-0`}>
-        {getUsernameInitials(username)}
-      </div>
+      <Avatar username={username} avatarUrl={avatarUrl} size={40} />
+
       
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
@@ -77,6 +96,7 @@ export function UserHeader({
       {/* Follow/Message/Unfollow - show for non-owners only */}
       {!isOwner && currentUsername && (
         <div className="flex items-center gap-2">
+          {summarizeButton}
           {!isFollowing ? (
             <Button
               size="sm"
@@ -122,9 +142,11 @@ export function UserHeader({
         </div>
       )}
 
-      {/* Three-dot menu - only show for owner */}
+      {/* Owner controls: AI summary + three-dot menu */}
       {isOwner && onEdit && onDelete && (
-        <DropdownMenu
+        <div className="flex items-center gap-1">
+          {summarizeButton}
+          <DropdownMenu
           trigger={
             <Button
               variant="ghost"
@@ -137,15 +159,21 @@ export function UserHeader({
           }
           align="end"
         >
-          <DropdownMenuItem onClick={onEdit} disabled={isDeleting} className="whitespace-nowrap">
-            <Edit2 className="h-4 w-4 mr-2" />
-            Edit post
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={onDelete} disabled={isDeleting} destructive className="whitespace-nowrap">
-            <Trash2 className="h-4 w-4 mr-2" />
-            Delete post
-          </DropdownMenuItem>
-        </DropdownMenu>
+            <DropdownMenuItem onClick={onEdit} disabled={isDeleting} className="whitespace-nowrap">
+              <Edit2 className="h-4 w-4 mr-2" />
+              Edit post
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={onDelete} disabled={isDeleting} destructive className="whitespace-nowrap">
+              <Trash2 className="h-4 w-4 mr-2" />
+              Delete post
+            </DropdownMenuItem>
+          </DropdownMenu>
+        </div>
+      )}
+
+      {/* Logged-out viewers: still surface the AI summary */}
+      {!isOwner && !currentUsername && summarizeButton && (
+        <div className="flex items-center">{summarizeButton}</div>
       )}
     </div>
   )

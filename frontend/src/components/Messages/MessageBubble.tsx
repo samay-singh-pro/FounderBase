@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { formatDate } from '@/utils/date'
 import { Check, CheckCheck, MoreVertical, Pin, Trash2, Smile } from 'lucide-react'
+import { resolveMediaUrl, type Media } from '@/services/media.service'
+import { linkify } from '@/utils/links'
+import { Avatar } from '@/components/ui/avatar'
 
 interface Reaction {
   emoji: string
@@ -17,6 +20,12 @@ interface MessageBubbleProps {
   isPinned?: boolean
   isDeleted?: boolean
   reactions?: Reaction[]
+  media?: Media | null
+  // Group-context only: who sent it. When set + isSent=false we render a small
+  // sender header above the bubble so multi-party threads stay readable.
+  senderName?: string | null
+  senderAvatarUrl?: string | null
+  showSenderHeader?: boolean
   onDelete?: (messageId: string) => void
   onPin?: (messageId: string) => void
   onReact?: (messageId: string, emoji: string) => void
@@ -34,6 +43,10 @@ export function MessageBubble({
   isPinned = false,
   isDeleted = false,
   reactions = [],
+  media = null,
+  senderName = null,
+  senderAvatarUrl = null,
+  showSenderHeader = false,
   onDelete,
   onPin,
   onReact
@@ -132,25 +145,71 @@ export function MessageBubble({
 
           {/* Message Content */}
           <div className={`flex flex-col ${isSent ? 'order-1' : 'order-2'}`}>
-            <div
-              className={`rounded-2xl px-3 py-2 relative ${
-                isDeleted 
-                  ? 'bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 italic'
-                  : isSent
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
-              }`}
-            >
-              {/* Pin Icon - Top right corner */}
-              {isPinned && (
-                <Pin className={`absolute top-2 ${isSent ? 'right-2' : 'right-2.5'} h-3.5 w-3.5 ${
-                  isSent ? 'text-white/80' : 'text-blue-500 dark:text-blue-400'
-                } fill-current`} />
-              )}
-              <p className={`text-[14.5px] leading-[1.4] break-words ${isPinned ? 'pr-6' : ''}`}>
-                {content}
-              </p>
-            </div>
+            {showSenderHeader && !isSent && senderName && (
+              <div className="flex items-center gap-1.5 mb-1 -mt-0.5 self-start text-xs text-slate-500 dark:text-slate-400">
+                <Avatar username={senderName} avatarUrl={senderAvatarUrl} size={18} />
+                <span className="font-medium text-slate-700 dark:text-slate-300">{senderName}</span>
+              </div>
+            )}
+            {!isDeleted && media && (
+              <div className={`mb-1 ${isSent ? 'self-end' : 'self-start'}`}>
+                {media.media_type === 'video' ? (
+                  <video
+                    src={resolveMediaUrl(media.url)}
+                    controls
+                    preload="metadata"
+                    className="rounded-2xl max-w-full max-h-80"
+                  />
+                ) : (
+                  <img
+                    src={resolveMediaUrl(media.url)}
+                    alt={media.media_type === 'gif' ? 'GIF' : 'Attached image'}
+                    className="rounded-2xl max-w-full max-h-80 object-cover"
+                    loading="lazy"
+                  />
+                )}
+              </div>
+            )}
+
+            {(isDeleted || content) && (
+              <div
+                className={`rounded-2xl px-3 py-2 relative ${
+                  isDeleted
+                    ? 'bg-slate-100 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 italic'
+                    : isSent
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-slate-200 dark:bg-slate-800 text-slate-900 dark:text-slate-100'
+                }`}
+              >
+                {/* Pin Icon - Top right corner */}
+                {isPinned && (
+                  <Pin className={`absolute top-2 ${isSent ? 'right-2' : 'right-2.5'} h-3.5 w-3.5 ${
+                    isSent ? 'text-white/80' : 'text-blue-500 dark:text-blue-400'
+                  } fill-current`} />
+                )}
+                <p className={`text-[14.5px] leading-[1.4] break-words ${isPinned ? 'pr-6' : ''}`}>
+                  {linkify(content).map((seg, i) =>
+                    seg.type === 'url' ? (
+                      <a
+                        key={i}
+                        href={seg.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className={`underline break-all ${
+                          isSent
+                            ? 'text-white hover:text-blue-100'
+                            : 'text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300'
+                        }`}
+                      >
+                        {seg.value}
+                      </a>
+                    ) : (
+                      <span key={i}>{seg.value}</span>
+                    ),
+                  )}
+                </p>
+              </div>
+            )}
 
             {/* Reactions - Below message */}
             {reactions.length > 0 && (

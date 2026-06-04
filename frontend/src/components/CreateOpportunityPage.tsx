@@ -12,6 +12,8 @@ import type { CreateOpportunityData } from '@/services/opportunities.service'
 import { ArrowLeft, Image, Link as LinkIcon, FileText, X, Plus, Save, Loader2 } from 'lucide-react'
 import DraftsModal from './DraftsModal'
 import AIWritingAssistant from './AIWritingAssistant'
+import MediaUploader from './media/MediaUploader'
+import { MEDIA_LIMITS, type Media } from '@/services/media.service'
 
 const CATEGORY_OPTIONS = [
   { value: 'farming', label: 'Farming' },
@@ -46,6 +48,7 @@ export default function CreateOpportunityPage() {
     category: '',
     links: [''],
   })
+  const [media, setMedia] = useState<Media[]>([])
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -72,6 +75,7 @@ export default function CreateOpportunityPage() {
             category: opportunity.category,
             links: opportunity.link ? opportunity.link.split(',') : [''],
           })
+          setMedia(opportunity.media || [])
         })
         .catch(() => {
           setError('Failed to load opportunity')
@@ -204,6 +208,7 @@ export default function CreateOpportunityPage() {
         type: formData.type,
         category: formData.category,
         link: linkData,
+        media_ids: media.map((m) => m.id),
       }
 
       if (isEditMode && id) {
@@ -434,13 +439,13 @@ export default function CreateOpportunityPage() {
           </TabsContent>
 
           <TabsContent value="media" className="mt-6">
-            <div className="border-2 border-dashed border-slate-300 dark:border-slate-700 rounded-lg p-12 text-center">
-              <Image className="h-12 w-12 mx-auto mb-4 text-slate-400 dark:text-slate-600" />
-              <p className="text-slate-600 dark:text-slate-400 mb-2">Image & Video support coming soon</p>
-              <p className="text-sm text-slate-500 dark:text-slate-500">
-                This feature is currently under development
-              </p>
-            </div>
+            <MediaUploader
+              value={media}
+              onChange={setMedia}
+              max={MEDIA_LIMITS.perPost}
+              accept="image+video"
+              disabled={isSubmitting}
+            />
           </TabsContent>
 
           <TabsContent value="link" className="mt-6 space-y-4">

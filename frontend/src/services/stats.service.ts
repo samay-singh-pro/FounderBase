@@ -13,6 +13,7 @@ export interface ActiveUser {
   id: string
   username: string
   email: string
+  avatar_url?: string | null
   posts_count: number
 }
 

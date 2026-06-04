@@ -1,4 +1,5 @@
 import api from '@/lib/api'
+import type { Media } from './media.service'
 
 export interface Opportunity {
   id: string
@@ -9,6 +10,7 @@ export interface Opportunity {
   link?: string | null
   user_id: string
   username: string
+  avatar_url?: string | null
   created_at: string
   status: string
   likes_count: number
@@ -16,6 +18,7 @@ export interface Opportunity {
   is_liked: boolean
   is_bookmarked: boolean
   is_following: boolean
+  media?: Media[]
 }
 
 export interface OpportunitiesResponse {
@@ -31,6 +34,7 @@ export interface CreateOpportunityData {
   type: 'problem' | 'idea' | 'improvement'
   category: string
   link?: string | null
+  media_ids?: string[]
 }
 
 export interface OpportunityFilters {

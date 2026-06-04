@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { Search, X, Send, Loader2 } from 'lucide-react'
-import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
+import { Search, X, Send, Loader2, Users, Check } from 'lucide-react'
+import { Avatar } from '@/components/ui/avatar'
 
 interface Follower {
   id: string
   username: string
+  avatarUrl?: string | null
   isOnline: boolean
 }
 
@@ -15,14 +16,19 @@ interface NewChatModalProps {
   isOpen: boolean
   onClose: () => void
   onSelectUser: (userId: string, username: string, message?: string) => void
+  onCreateGroup?: (params: { name: string; member_ids: string[] }) => void | Promise<void>
   followers: Follower[]
   preselectedUser?: { userId: string; username: string } | null
 }
 
-export function NewChatModal({ isOpen, onClose, onSelectUser, followers, preselectedUser }: NewChatModalProps) {
+export function NewChatModal({ isOpen, onClose, onSelectUser, onCreateGroup, followers, preselectedUser }: NewChatModalProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [message, setMessage] = useState('')
   const [isSending, setIsSending] = useState(false)
+  const [mode, setMode] = useState<'dm' | 'group'>('dm')
+  const [groupName, setGroupName] = useState('')
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [isCreating, setIsCreating] = useState(false)
 
   if (!isOpen) return null
 
@@ -56,9 +62,34 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
     }
   }
 
-  if (preselectedUser) {
-    const avatarColor = getAvatarColor(preselectedUser.username)
+  const toggleSelected = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
 
+  const handleCreateGroup = async () => {
+    if (!onCreateGroup) return
+    if (!groupName.trim() || selectedIds.size === 0) return
+    setIsCreating(true)
+    try {
+      await onCreateGroup({
+        name: groupName.trim(),
+        member_ids: Array.from(selectedIds),
+      })
+      setGroupName('')
+      setSelectedIds(new Set())
+      setMode('dm')
+      onClose()
+    } finally {
+      setIsCreating(false)
+    }
+  }
+
+  if (preselectedUser) {
     return (
       <div
         className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 dark:bg-black/70"
@@ -84,9 +115,12 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
 
           <div className="p-6">
             <div className="flex flex-col items-center text-center mb-5">
-              <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-xl mb-3`}>
-                {getUsernameInitials(preselectedUser.username)}
-              </div>
+              <Avatar
+                username={preselectedUser.username}
+                avatarUrl={null}
+                size={64}
+                className="mb-3"
+              />
               <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100">
                 {preselectedUser.username}
               </h4>
@@ -165,7 +199,7 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-800">
           <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100">
-            New Message
+            {mode === 'group' ? 'New Group' : 'New Message'}
           </h3>
           <Button
             variant="ghost"
@@ -177,40 +211,105 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
           </Button>
         </div>
 
-        <div className="p-4 border-b border-slate-200 dark:border-slate-800">
+        {/* Mode toggle */}
+        {onCreateGroup && (
+          <div className="px-4 pt-3">
+            <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-lg">
+              <button
+                type="button"
+                onClick={() => setMode('dm')}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                  mode === 'dm'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                Direct
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('group')}
+                className={`flex-1 px-3 py-1.5 text-sm font-medium rounded-md transition-colors flex items-center justify-center gap-1.5 ${
+                  mode === 'group'
+                    ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm'
+                    : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100'
+                }`}
+              >
+                <Users className="h-3.5 w-3.5" />
+                Group
+              </button>
+            </div>
+          </div>
+        )}
+
+        <div className="p-4 border-b border-slate-200 dark:border-slate-800 space-y-3">
+          {mode === 'group' && (
+            <Input
+              type="text"
+              placeholder="Group name"
+              value={groupName}
+              maxLength={120}
+              onChange={(e) => setGroupName(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full"
+            />
+          )}
           <div className="relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
             <Input
               type="text"
-              placeholder="Search people you follow..."
+              placeholder={mode === 'group' ? 'Search to add members...' : 'Search people you follow...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-9 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-full"
-              autoFocus
+              autoFocus={mode !== 'group'}
             />
           </div>
+          {mode === 'group' && selectedIds.size > 0 && (
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              {selectedIds.size} selected
+            </p>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {filteredFollowers.length > 0 ? (
             filteredFollowers.map((follower) => {
-              const avatarColor = getAvatarColor(follower.username)
+              const isSelected = selectedIds.has(follower.id)
               return (
                 <div
                   key={follower.id}
-                  onClick={() => handleSelectUser(follower.id, follower.username)}
-                  className="flex items-center gap-3 p-4 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors border-b border-slate-100 dark:border-slate-800 last:border-b-0 last:rounded-b-2xl"
+                  onClick={() =>
+                    mode === 'group'
+                      ? toggleSelected(follower.id)
+                      : handleSelectUser(follower.id, follower.username)
+                  }
+                  className={`flex items-center gap-3 p-4 cursor-pointer transition-colors border-b border-slate-100 dark:border-slate-800 last:border-b-0 ${
+                    mode === 'group' && isSelected
+                      ? 'bg-blue-50 dark:bg-blue-900/20'
+                      : 'hover:bg-slate-50 dark:hover:bg-slate-800'
+                  }`}
                 >
-                  <div className="relative">
-                    <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm`}>
-                      {getUsernameInitials(follower.username)}
-                    </div>
-                  </div>
+                  <Avatar
+                    username={follower.username}
+                    avatarUrl={follower.avatarUrl}
+                    size={48}
+                  />
                   <div className="flex-1">
                     <p className="font-semibold text-slate-900 dark:text-slate-100">
                       {follower.username}
                     </p>
                   </div>
+                  {mode === 'group' && (
+                    <div
+                      className={`h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors ${
+                        isSelected
+                          ? 'bg-blue-600 border-blue-600 text-white'
+                          : 'border-slate-300 dark:border-slate-600'
+                      }`}
+                    >
+                      {isSelected && <Check className="h-3 w-3" />}
+                    </div>
+                  )}
                 </div>
               )
             })
@@ -226,6 +325,33 @@ export function NewChatModal({ isOpen, onClose, onSelectUser, followers, presele
             </div>
           )}
         </div>
+
+        {mode === 'group' && (
+          <div className="p-4 border-t border-slate-200 dark:border-slate-800 flex justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={onClose}
+              disabled={isCreating}
+              className="rounded-full border-slate-300 dark:border-slate-700"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateGroup}
+              disabled={isCreating || !groupName.trim() || selectedIds.size === 0}
+              className="rounded-full bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              {isCreating ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Users className="h-4 w-4 mr-2" />
+                  Create group
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

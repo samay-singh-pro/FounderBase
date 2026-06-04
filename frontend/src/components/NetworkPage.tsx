@@ -9,11 +9,13 @@ import { Spinner } from './ui/spinner'
 import { Users, UserPlus, UserMinus, User, Compass } from 'lucide-react'
 import { useToastStore } from '@/store/toastStore'
 import { useNavigate } from 'react-router-dom'
+import { Avatar } from './ui/avatar'
 
 interface UserProfile {
   id: string
   username: string
   email?: string
+  avatar_url?: string | null
   is_following?: boolean
 }
 
@@ -205,9 +207,7 @@ export default function NetworkPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-100 to-emerald-200 dark:from-green-600 dark:to-emerald-500 flex items-center justify-center text-green-700 dark:text-white font-bold text-lg flex-shrink-0">
-                            {follower.username?.charAt(0).toUpperCase()}
-                          </div>
+                          <Avatar username={follower.username} avatarUrl={follower.avatar_url} size={48} />
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                               {follower.username}
@@ -283,9 +283,7 @@ export default function NetworkPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-100 to-cyan-200 dark:from-blue-600 dark:to-cyan-500 flex items-center justify-center text-blue-700 dark:text-white font-bold text-lg flex-shrink-0">
-                            {user.username?.charAt(0).toUpperCase()}
-                          </div>
+                          <Avatar username={user.username} avatarUrl={user.avatar_url} size={48} />
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                               {user.username}
@@ -349,9 +347,7 @@ export default function NetworkPage() {
                     <CardContent className="p-4">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3 flex-1 min-w-0">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-br from-purple-100 to-pink-200 dark:from-purple-600 dark:to-pink-500 flex items-center justify-center text-purple-700 dark:text-white font-bold text-lg flex-shrink-0">
-                            {suggestedUser.username?.charAt(0).toUpperCase()}
-                          </div>
+                          <Avatar username={suggestedUser.username} avatarUrl={suggestedUser.avatar_url} size={48} />
                           <div className="min-w-0 flex-1">
                             <h3 className="font-semibold text-slate-900 dark:text-slate-100 truncate">
                               {suggestedUser.username}

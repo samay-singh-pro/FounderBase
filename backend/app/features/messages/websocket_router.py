@@ -122,20 +122,18 @@ async def handle_new_message(websocket: WebSocket, message_data: dict, user_id: 
             current_user_id=user_id
         )
         
-        # Get conversation to find recipient
+        # Get conversation and resolve every participant — DMs return 2 users,
+        # groups return every member.
         conversation = MessageService.get_conversation_by_id(
             db=db,
             conversation_id=conversation_id,
             current_user_id=user_id
         )
-        
-        # Determine recipient
-        recipient_id = conversation.user2_id if conversation.user1_id == user_id else conversation.user1_id
-        
+        recipients = MessageService.get_recipient_ids(db, conversation)
+
         # Prepare message for broadcast
-        # Add 'Z' suffix to indicate UTC timezone
         created_at_utc = new_message.created_at.isoformat() + 'Z' if not new_message.created_at.isoformat().endswith('Z') else new_message.created_at.isoformat()
-        
+
         message_response = {
             "type": "message",
             "id": new_message.id,
@@ -145,12 +143,8 @@ async def handle_new_message(websocket: WebSocket, message_data: dict, user_id: 
             "is_read": new_message.is_read,
             "created_at": created_at_utc
         }
-        
-        # Send to both sender and recipient
-        await manager.send_message_to_conversation(
-            message_response,
-            [user_id, recipient_id]
-        )
+
+        await manager.send_message_to_conversation(message_response, recipients)
         
     except Exception as e:
         logger.error(f"Error sending message: {e}")

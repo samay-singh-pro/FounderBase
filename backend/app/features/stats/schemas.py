@@ -19,6 +19,7 @@ class ActiveUser(BaseModel):
     id: str
     username: str
     email: str
+    avatar_url: str | None = None
     posts_count: int
 
 

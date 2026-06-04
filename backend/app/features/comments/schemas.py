@@ -4,14 +4,20 @@ from datetime import datetime, timezone
 from pydantic import BaseModel, Field, field_serializer
 from typing import Any
 
+from app.features.media.schemas import MediaPublic
+
 
 class CommentCreate(BaseModel):
     """Schema for creating a new comment"""
-    
+
     content: str = Field(
-        min_length=2,
+        default="",
         max_length=500,
-        description="Comment content"
+        description="Comment content (empty allowed when a media attachment is included)"
+    )
+    media_id: str | None = Field(
+        default=None,
+        description="Optional ID of a single media item to attach"
     )
     
     model_config = {
@@ -45,8 +51,10 @@ class CommentPublic(BaseModel):
     opportunity_id: str
     user_id: str
     username: str = Field(default="", description="Username of the commenter")
+    avatar_url: str | None = Field(default=None, description="Profile picture URL of the commenter")
     created_at: datetime
     is_owner: bool = Field(default=False, description="Whether the current user owns this comment")
+    media: MediaPublic | None = None
     
     @field_serializer('created_at')
     def serialize_datetime(self, dt: datetime, _info: Any) -> str:

@@ -17,6 +17,7 @@ from app.features.messages.router import router as messages_router
 from app.features.stats.router import router as stats_router
 from app.features.settings.router import router as settings_router
 from app.features.ai.router import router as ai_router
+from app.features.media.router import router as media_router
 
 # Create API v1 router
 api_router = APIRouter(prefix="/api/v1")
@@ -33,4 +34,5 @@ api_router.include_router(messages_router)
 api_router.include_router(stats_router)
 api_router.include_router(settings_router)
 api_router.include_router(ai_router)
+api_router.include_router(media_router)
 

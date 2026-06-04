@@ -5,6 +5,12 @@ interface User {
   id: string
   email: string
   username: string
+  avatar_url?: string | null
+  full_name?: string | null
+  bio?: string | null
+  location?: string | null
+  website?: string | null
+  phone?: string | null
   theme?: string
 }
 

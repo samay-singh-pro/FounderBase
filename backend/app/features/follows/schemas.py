@@ -12,10 +12,11 @@ class FollowStatusResponse(BaseModel):
 class FollowerPublic(BaseModel):
     """Public schema for a follower with user details"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     username: str
     email: str
+    avatar_url: str | None = None
     followed_at: datetime
     is_following: bool = False
 
@@ -23,10 +24,11 @@ class FollowerPublic(BaseModel):
 class FollowingPublic(BaseModel):
     """Public schema for a following user with user details"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     username: str
     email: str
+    avatar_url: str | None = None
     followed_at: datetime
     is_following: bool = True
 
@@ -50,10 +52,11 @@ class FollowingListResponse(BaseModel):
 class SuggestedUserPublic(BaseModel):
     """Public schema for a suggested user to follow"""
     model_config = ConfigDict(from_attributes=True)
-    
+
     id: str
     username: str
     email: str
+    avatar_url: str | None = None
 
 
 class SuggestedUsersResponse(BaseModel):

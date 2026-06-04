@@ -457,4 +457,112 @@ Keep feedback concise, actionable, and encouraging.
 
 
 # Singleton instance
+    async def summarize_post(
+        self,
+        title: str,
+        description: str,
+        post_type: str,
+        category: str,
+        comments: List[Dict[str, str]],
+    ) -> Dict[str, Any]:
+        """Summarize a post and its comment thread.
+
+        Returns ``{"success", "summary", "comments_considered", "error"}``.
+        Comments are capped to keep the prompt bounded for cheap Gemini Flash
+        runs; the cap is reflected back to the client via ``comments_considered``.
+        """
+        if not self.model:
+            return {
+                "success": False,
+                "summary": "",
+                "comments_considered": 0,
+                "error": "AI model not initialized. Please check API key configuration.",
+            }
+
+        max_comments = 30
+        max_comment_chars = 500
+        used = comments[:max_comments]
+
+        if used:
+            comments_block_lines = []
+            for i, c in enumerate(used, 1):
+                username = (c.get("username") or "user").strip() or "user"
+                content = (c.get("content") or "").strip().replace("\n", " ")
+                if len(content) > max_comment_chars:
+                    content = content[:max_comment_chars] + "..."
+                if content:
+                    comments_block_lines.append(f"{i}. @{username}: {content}")
+            comments_block = "\n".join(comments_block_lines) or "(comments are media-only)"
+        else:
+            comments_block = "(no comments yet)"
+
+        truncated_description = description[:2000]
+
+        prompt = f"""You are summarizing a community post and how readers reacted.
+
+POST
+Title: {title}
+Type: {post_type}
+Category: {category}
+Description: {truncated_description}
+
+COMMENTS ({len(used)} shown of {len(comments)})
+{comments_block}
+
+Write a concise, neutral summary (under 110 words, plain prose, no bullets, no headings) that covers:
+- What the post is about and its core point.
+- How readers are reacting in the comments (only if comments exist; otherwise say "No comments yet.").
+- Any notable agreement, pushback, or recurring themes.
+
+Do NOT add disclaimers, do NOT quote comments verbatim, do NOT include the user's name."""
+
+        try:
+            response = self.model.generate_content(
+                prompt,
+                safety_settings=self.safety_settings,
+            )
+
+            if not response:
+                return {
+                    "success": False,
+                    "summary": "",
+                    "comments_considered": len(used),
+                    "error": "No response received from AI. Please try again.",
+                }
+
+            try:
+                response_text = response.text
+            except ValueError:
+                return {
+                    "success": False,
+                    "summary": "",
+                    "comments_considered": len(used),
+                    "error": "Response was blocked by safety filters.",
+                }
+
+            if not response_text or not response_text.strip():
+                return {
+                    "success": False,
+                    "summary": "",
+                    "comments_considered": len(used),
+                    "error": "Couldn't generate a summary. Please try again.",
+                }
+
+            return {
+                "success": True,
+                "summary": response_text.strip(),
+                "comments_considered": len(used),
+                "error": "",
+            }
+
+        except Exception as e:
+            print(f"AI Service Error (summarize_post): {type(e).__name__}: {str(e)}")
+            return {
+                "success": False,
+                "summary": "",
+                "comments_considered": len(used),
+                "error": f"Error: {str(e)}",
+            }
+
+
 ai_service = AIService()

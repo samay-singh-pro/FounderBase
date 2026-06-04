@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { commentsService, type Comment } from '@/services/comments.service'
 import { useToastStore } from '@/store/toastStore'
+import type { Media } from '@/services/media.service'
 
 export interface UseCommentsProps {
   opportunityId: string
@@ -10,6 +11,7 @@ export interface UseCommentsProps {
 export function useComments({ opportunityId, showComments }: UseCommentsProps) {
   const [comments, setComments] = useState<Comment[]>([])
   const [newComment, setNewComment] = useState('')
+  const [commentMedia, setCommentMedia] = useState<Media | null>(null)
   const [isLoadingComments, setIsLoadingComments] = useState(false)
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
 
@@ -34,15 +36,17 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
 
   const submitComment = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!newComment.trim()) return
+    if (!newComment.trim() && !commentMedia) return
 
     setIsSubmittingComment(true)
     try {
       const comment = await commentsService.createComment(opportunityId, {
         content: newComment,
+        media_id: commentMedia?.id ?? null,
       })
       setComments([...comments, comment])
       setNewComment('')
+      setCommentMedia(null)
     } catch {
       useToastStore.getState().error('Failed to post comment. Please try again.')
     } finally {
@@ -63,6 +67,8 @@ export function useComments({ opportunityId, showComments }: UseCommentsProps) {
     comments,
     newComment,
     setNewComment,
+    commentMedia,
+    setCommentMedia,
     isLoadingComments,
     isSubmittingComment,
     submitComment,

@@ -169,10 +169,29 @@ def get_user_profile(
 ) -> UserPublic:
     """
     Get a user's public profile by ID.
-    
+
     Returns public information about the user (no authentication required).
     """
     user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found"
+        )
+    return UserPublic.model_validate(user)
+
+
+@router.get(
+    "/users/by-username/{username}",
+    response_model=UserPublic,
+    summary="Get user profile by username",
+    description="Public lookup so we don't have to derive the user from their posts",
+)
+def get_user_by_username(
+    username: str,
+    db: Session = Depends(get_db)
+) -> UserPublic:
+    user = db.query(User).filter(User.username == username).first()
     if not user:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,

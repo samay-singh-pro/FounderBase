@@ -7,6 +7,7 @@ import { followsService, type UserProfile } from '@/services/follows.service'
 import { useAuthStore } from '@/store/authStore'
 import { Users, FileText, Grid3x3, Lightbulb, AlertCircle, TrendingUp, UserPlus, Sparkles } from 'lucide-react'
 import { Spinner } from './ui/spinner'
+import { Avatar } from './ui/avatar'
 
 export default function LeftSidebar() {
   const navigate = useNavigate()
@@ -170,9 +171,11 @@ export default function LeftSidebar() {
                 className="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors cursor-pointer"
                 onClick={() => navigate(`/user/${suggestedUser.username}`)}
               >
-                <div className="w-9 h-9 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-700 dark:text-slate-200 font-semibold text-sm flex-shrink-0">
-                  {suggestedUser.username.charAt(0).toUpperCase()}
-                </div>
+                <Avatar
+                  username={suggestedUser.username}
+                  avatarUrl={suggestedUser.avatar_url}
+                  size={36}
+                />
                 <div className="flex-1 min-w-0">
                   <p className="font-semibold text-sm text-slate-900 dark:text-slate-100 truncate">
                     {suggestedUser.username}

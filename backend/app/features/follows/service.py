@@ -136,6 +136,7 @@ def get_followers(
             User.id,
             User.username,
             User.email,
+            User.avatar_url,
             Follow.created_at.label('followed_at')
         )
         .join(Follow, Follow.follower_id == User.id)
@@ -167,6 +168,7 @@ def get_followers(
             'id': row.id,
             'username': row.username,
             'email': row.email,
+            'avatar_url': row.avatar_url,
             'followed_at': row.followed_at
         }
         for row in followers_query.all()
@@ -205,6 +207,7 @@ def get_following(
             User.id,
             User.username,
             User.email,
+            User.avatar_url,
             Follow.created_at.label('followed_at')
         )
         .join(Follow, Follow.followee_id == User.id)
@@ -236,6 +239,7 @@ def get_following(
             'id': row.id,
             'username': row.username,
             'email': row.email,
+            'avatar_url': row.avatar_url,
             'followed_at': row.followed_at
         }
         for row in following_query.all()
@@ -288,7 +292,7 @@ def get_suggested_users(
     
     # Get users NOT in following list, NOT blocked, and NOT the current user
     suggested_users_query = (
-        db.query(User.id, User.username, User.email)
+        db.query(User.id, User.username, User.email, User.avatar_url)
         .filter(
             User.id != user_id,  # Exclude self
             ~User.id.in_(following_ids_subquery),  # Exclude already following
@@ -296,18 +300,16 @@ def get_suggested_users(
         )
         .order_by(User.username.asc())  # Alphabetically by username
     )
-    
-    # Get total count
+
     total = suggested_users_query.count()
-    
-    # Get paginated results
     users = suggested_users_query.offset(offset).limit(limit).all()
-    
+
     suggested_users = [
         {
             'id': row.id,
             'username': row.username,
-            'email': row.email
+            'email': row.email,
+            'avatar_url': row.avatar_url,
         }
         for row in users
     ]

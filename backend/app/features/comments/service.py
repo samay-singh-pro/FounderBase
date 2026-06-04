@@ -1,11 +1,13 @@
 """Comment business logic"""
 
+from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 from sqlalchemy import String
 
 from app.features.comments.models import Comment
 from app.features.comments.schemas import CommentCreate
 from app.features.auth.models import User
+from app.features.media.service import assert_owned as assert_media_owned
 
 
 def create_comment(
@@ -16,26 +18,36 @@ def create_comment(
 ) -> Comment:
     """
     Create a new comment on an opportunity.
-    
+
     Args:
         db: Database session
         user_id: ID of user creating the comment
         opportunity_id: ID of the opportunity being commented on
         data: Comment data
-        
+
     Returns:
         Created Comment object
     """
+    if not data.content.strip() and not data.media_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="A comment must have text or a media attachment",
+        )
+
+    if data.media_id:
+        assert_media_owned(db, [data.media_id], user_id)
+
     comment = Comment(
         content=data.content,
         opportunity_id=opportunity_id,
         user_id=user_id,
+        media_id=data.media_id,
     )
-    
+
     db.add(comment)
     db.commit()
     db.refresh(comment)
-    
+
     return comment
 
 
@@ -59,18 +71,15 @@ def get_comments_by_opportunity(
     Returns:
         Tuple of (comments list with username and is_owner, total count)
     """
-    # Join Comment with User to get username
-    # Cast User.id to string for the join since comment.user_id is stored as string
+    # Join Comment with User to pull username + avatar in a single query.
     query = (
-        db.query(Comment, User.username)
+        db.query(Comment, User.username, User.avatar_url)
         .join(User, Comment.user_id == User.id.cast(String))
         .filter(Comment.opportunity_id == opportunity_id)
     )
-    
-    # Get total count
+
     total = query.count()
-    
-    # Get comments ordered by created_at (oldest first for natural conversation flow)
+
     results = (
         query
         .order_by(Comment.created_at.asc())
@@ -78,20 +87,21 @@ def get_comments_by_opportunity(
         .limit(limit)
         .all()
     )
-    
-    # Convert to dictionaries with username and ownership info
+
     comments = []
-    for comment, username in results:
+    for comment, username, avatar_url in results:
         comments.append({
             'id': comment.id,
             'content': comment.content,
             'opportunity_id': comment.opportunity_id,
             'user_id': comment.user_id,
             'username': username,
+            'avatar_url': avatar_url,
             'created_at': comment.created_at,
             'is_owner': current_user_id == comment.user_id if current_user_id else False,
+            'media': comment.media,
         })
-    
+
     return comments, total
 
 

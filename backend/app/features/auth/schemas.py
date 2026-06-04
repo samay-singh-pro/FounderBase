@@ -45,6 +45,7 @@ class UserPublic(BaseModel):
     location: Optional[str] = None
     website: Optional[str] = None
     phone: Optional[str] = None
+    avatar_url: Optional[str] = None
     theme: Optional[str] = "light"
     created_at: Optional[datetime] = None
 
@@ -57,6 +58,7 @@ class UserUpdate(BaseModel):
     location: Optional[str] = Field(None, max_length=100, description="Location")
     website: Optional[str] = Field(None, max_length=255, description="Website URL")
     phone: Optional[str] = Field(None, max_length=20, description="Phone number")
+    avatar_url: Optional[str] = Field(None, max_length=1000, description="Profile picture URL (set via /media/upload first)")
     theme: Optional[str] = Field(None, max_length=20, description="UI theme preference")
 
 

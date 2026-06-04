@@ -9,6 +9,7 @@ import { Spinner } from './ui/spinner'
 import { User, FileText, Users, MapPin, Globe, Calendar, MessageSquare, UserPlus, UserMinus, ShieldX, Heart } from 'lucide-react'
 import { useToastStore } from '@/store/toastStore'
 import api from '@/lib/api'
+import { Avatar } from './ui/avatar'
 
 interface UserProfile {
   id: string
@@ -18,6 +19,7 @@ interface UserProfile {
   bio?: string
   location?: string
   website?: string
+  avatar_url?: string | null
   created_at?: string
 }
 
@@ -56,55 +58,67 @@ export default function UserProfilePage() {
   const loadUserData = async () => {
     setIsLoading(true)
     try {
-      // Fetch all posts and filter by username to get user info
-      const postsResponse = await opportunitiesService.getAll({ 
-        limit: 100,
-        sort_by: 'created_at',
-        sort_order: 'desc'
-      })
-      
-      // Find posts by this user
-      const userPostsFiltered = postsResponse.opportunities.filter(
-        (post: Opportunity) => post.username === username
-      )
-      
-      if (userPostsFiltered.length === 0) {
-        useToastStore.getState().error('User not found')
-        navigate('/')
-        return
+      // Resolve the user authoritatively by username, not by their posts —
+      // a user with zero posts (or posts past the 100 newest) is still a real
+      // user and should not be reported as "not found".
+      let profileResponse
+      try {
+        profileResponse = await api.get(`/api/v1/auth/users/by-username/${username}`)
+      } catch (err: any) {
+        if (err?.response?.status === 404) {
+          useToastStore.getState().error('User not found')
+          navigate('/')
+          return
+        }
+        throw err
       }
+      setProfile(profileResponse.data)
+      const userId: string = profileResponse.data.id
 
-      setUserPosts(userPostsFiltered)
-      
-      // Get userId from first post
-      const userId = userPostsFiltered[0].user_id
-      
-      // Check block status first
+      // Block status — only check for other users, never for self.
       if (currentUser?.id !== userId) {
         const blockStatusResponse = await api.get(`/api/v1/messages/users/${userId}/block-status`)
         if (blockStatusResponse.data.is_blocked) {
           setIsBlocked(true)
           setBlockInfo({
             blocked_by_me: blockStatusResponse.data.blocked_by_me,
-            blocked_by_them: blockStatusResponse.data.blocked_by_them
+            blocked_by_them: blockStatusResponse.data.blocked_by_them,
           })
           setIsLoading(false)
-          return // Don't load profile data if blocked
+          return
         }
       }
-      
-      // Fetch user profile
-      const profileResponse = await api.get(`/api/v1/auth/users/${userId}`)
-      setProfile(profileResponse.data)
-      
-      // Fetch user stats
-      const statsResponse = await api.get(`/api/v1/auth/users/${userId}/stats`)
-      setStats(statsResponse.data)
-      
-      // Check if following
+
+      // Posts by this user — empty list is fine, not an error.
+      try {
+        const postsResponse = await opportunitiesService.getAll({
+          limit: 100,
+          sort_by: 'created_at',
+          sort_order: 'desc',
+        })
+        setUserPosts(
+          postsResponse.opportunities.filter((post: Opportunity) => post.user_id === userId)
+        )
+      } catch {
+        setUserPosts([])
+      }
+
+      // Stats
+      try {
+        const statsResponse = await api.get(`/api/v1/auth/users/${userId}/stats`)
+        setStats(statsResponse.data)
+      } catch {
+        // Non-fatal — leave defaults.
+      }
+
+      // Follow status
       if (currentUser?.id !== userId) {
-        const followStatusResponse = await api.get(`/api/v1/users/${userId}/follow-status`)
-        setIsFollowing(followStatusResponse.data.is_following)
+        try {
+          const followStatusResponse = await api.get(`/api/v1/users/${userId}/follow-status`)
+          setIsFollowing(followStatusResponse.data.is_following)
+        } catch {
+          // Non-fatal.
+        }
       }
       setIsCheckingFollow(false)
     } catch (error) {
@@ -201,9 +215,12 @@ export default function UserProfilePage() {
             <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 -mt-12 sm:-mt-14">
               <div className="flex items-end gap-4">
                 <div className="relative">
-                  <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full bg-slate-800 dark:bg-slate-700 flex items-center justify-center text-white font-semibold text-4xl ring-4 ring-white dark:ring-slate-900 shadow-md">
-                    {profile.username.charAt(0).toUpperCase()}
-                  </div>
+                  <Avatar
+                    username={profile.username}
+                    avatarUrl={profile.avatar_url}
+                    size={112}
+                    ringClassName="ring-4 ring-white dark:ring-slate-900 shadow-md"
+                  />
                 </div>
                 <div className="pb-1 sm:pb-2">
                   <h1 className="text-2xl font-bold text-slate-900 dark:text-slate-100">

@@ -1,10 +1,13 @@
-import { getAvatarColor, getUsernameInitials } from '@/utils/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import { formatDate } from '@/utils/date'
-import { BellOff } from 'lucide-react'
+import { BellOff, Users } from 'lucide-react'
 
 interface ConversationItemProps {
   id: string
   username: string
+  avatarUrl?: string | null
+  isGroup?: boolean
+  memberCount?: number | null
   lastMessage: string
   timestamp: string
   unreadCount: number
@@ -17,6 +20,9 @@ interface ConversationItemProps {
 
 export function ConversationItem({
   username,
+  avatarUrl,
+  isGroup = false,
+  memberCount,
   lastMessage,
   timestamp,
   unreadCount,
@@ -26,8 +32,6 @@ export function ConversationItem({
   isMuted = false,
   onClick,
 }: ConversationItemProps) {
-  const avatarColor = getAvatarColor(username)
-
   return (
     <div
       onClick={onClick}
@@ -37,27 +41,31 @@ export function ConversationItem({
           : 'hover:bg-slate-50 dark:hover:bg-slate-800/50'
       }`}
     >
-      <div className="relative flex-shrink-0">
-        <div className={`w-12 h-12 rounded-full bg-gradient-to-br ${avatarColor.light} ${avatarColor.dark} flex items-center justify-center ${avatarColor.text} font-semibold text-sm`}>
-          {getUsernameInitials(username)}
-        </div>
-        {isOnline && (
-          <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-white dark:border-slate-900 rounded-full"></div>
-        )}
-      </div>
+      <Avatar
+        username={username}
+        avatarUrl={avatarUrl}
+        size={48}
+        online={!isGroup && isOnline}
+      />
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
           <div className="flex items-center gap-2 min-w-0">
+            {isGroup && <Users className="flex-shrink-0 h-3.5 w-3.5 text-slate-500 dark:text-slate-400" />}
             <span className={`font-semibold text-sm truncate ${
               unreadCount > 0 ? 'text-slate-900 dark:text-slate-100' : 'text-slate-700 dark:text-slate-300'
             }`}>
               {username}
             </span>
+            {isGroup && typeof memberCount === 'number' && (
+              <span className="flex-shrink-0 text-xs text-slate-500 dark:text-slate-400">
+                · {memberCount}
+              </span>
+            )}
             {isMuted && (
               <BellOff className="flex-shrink-0 h-3.5 w-3.5 text-slate-400 dark:text-slate-500" title="Muted" />
             )}
-            {status === 'pending' && (
+            {status === 'pending' && !isGroup && (
               <span className="flex-shrink-0 text-xs bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400 px-2 py-0.5 rounded-full font-medium">
                 Pending
               </span>

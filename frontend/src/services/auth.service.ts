@@ -34,6 +34,7 @@ export interface UserProfile {
   bio?: string
   location?: string
   website?: string
+  avatar_url?: string | null
   created_at?: string
 }
 
@@ -42,6 +43,7 @@ export interface UserProfileUpdate {
   bio?: string
   location?: string
   website?: string
+  avatar_url?: string | null
 }
 
 export interface UserStats {

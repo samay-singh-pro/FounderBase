@@ -8,7 +8,58 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { authService } from '@/services/auth.service'
 import { useAuthStore } from '@/store/authStore'
 import { useThemeStore } from '@/stores/themeStore'
-import { Loader2 } from 'lucide-react'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
+
+/**
+ * Password input with a show/hide toggle. Wraps the shared <Input> so it keeps
+ * the same styling; the eye button is overlaid on the right with padding to
+ * keep typed text from running underneath it.
+ */
+function PasswordField({
+  id,
+  label,
+  value,
+  onChange,
+  disabled,
+  autoComplete,
+}: {
+  id: string
+  label: string
+  value: string
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void
+  disabled?: boolean
+  autoComplete?: string
+}) {
+  const [show, setShow] = useState(false)
+  return (
+    <div className="space-y-2">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="relative">
+        <Input
+          id={id}
+          type={show ? 'text' : 'password'}
+          placeholder="••••••••"
+          value={value}
+          onChange={onChange}
+          required
+          disabled={disabled}
+          autoComplete={autoComplete}
+          className="pr-10"
+        />
+        <button
+          type="button"
+          tabIndex={-1}
+          onClick={() => setShow((s) => !s)}
+          disabled={disabled}
+          aria-label={show ? 'Hide password' : 'Show password'}
+          className="absolute inset-y-0 right-0 flex items-center px-3 text-muted-foreground hover:text-foreground disabled:opacity-50"
+        >
+          {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+        </button>
+      </div>
+    </div>
+  )
+}
 
 export default function AuthPage() {
   const navigate = useNavigate()
@@ -133,18 +184,14 @@ export default function AuthPage() {
                       disabled={isLoading}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="login-password">Password</Label>
-                    <Input
-                      id="login-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={loginData.password}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setLoginData({ ...loginData, password: e.target.value })}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
+                  <PasswordField
+                    id="login-password"
+                    label="Password"
+                    value={loginData.password}
+                    onChange={(e) => setLoginData({ ...loginData, password: e.target.value })}
+                    disabled={isLoading}
+                    autoComplete="current-password"
+                  />
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>
@@ -231,30 +278,22 @@ export default function AuthPage() {
                       maxLength={50}
                     />
                   </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-password">Password</Label>
-                    <Input
-                      id="signup-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={signupData.password}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSignupData({ ...signupData, password: e.target.value })}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-confirm-password">Confirm Password</Label>
-                    <Input
-                      id="signup-confirm-password"
-                      type="password"
-                      placeholder="••••••••"
-                      value={signupData.confirmPassword}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
-                      required
-                      disabled={isLoading}
-                    />
-                  </div>
+                  <PasswordField
+                    id="signup-password"
+                    label="Password"
+                    value={signupData.password}
+                    onChange={(e) => setSignupData({ ...signupData, password: e.target.value })}
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                  />
+                  <PasswordField
+                    id="signup-confirm-password"
+                    label="Confirm Password"
+                    value={signupData.confirmPassword}
+                    onChange={(e) => setSignupData({ ...signupData, confirmPassword: e.target.value })}
+                    disabled={isLoading}
+                    autoComplete="new-password"
+                  />
                 </CardContent>
                 <CardFooter className="flex flex-col space-y-4">
                   <Button type="submit" className="w-full" disabled={isLoading}>

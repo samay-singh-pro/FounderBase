@@ -1,5 +1,6 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
+import type { Media } from '@/services/media.service'
 
 const API_BASE_URL = 'http://127.0.0.1:8000'
 
@@ -35,16 +36,28 @@ api.interceptors.response.use(
   }
 )
 
+export interface GroupMember {
+  user_id: string
+  username: string
+  avatar_url?: string | null
+  role: 'admin' | 'member'
+  joined_at?: string | null
+}
+
 export interface Conversation {
   id: string
-  user1_id: string
-  user2_id: string
+  user1_id: string | null
+  user2_id: string | null
   status: 'pending' | 'accepted' | 'declined'
   created_by_id: string
   created_at: string
   updated_at: string
+  is_group?: boolean
+  name?: string | null
+  avatar_url?: string | null
   other_user_id: string
   other_user_username: string
+  other_user_avatar_url?: string | null
   last_message: string | null
   last_message_time: string | null
   unread_count: number
@@ -52,6 +65,8 @@ export interface Conversation {
   is_blocked?: boolean
   is_blocked_by_me?: boolean
   is_blocked_by_them?: boolean
+  members?: GroupMember[] | null
+  member_count?: number | null
 }
 
 export interface Reaction {
@@ -69,6 +84,7 @@ export interface Message {
   is_deleted: boolean
   created_at: string
   reactions?: Reaction[]
+  media?: Media | null
 }
 
 export const messageApi = {
@@ -98,10 +114,68 @@ export const messageApi = {
     return response.data
   },
 
-  startConversation: async (recipientId: string, message?: string): Promise<Conversation> => {
+  createGroup: async (params: {
+    name: string
+    member_ids: string[]
+    avatar_url?: string | null
+  }): Promise<Conversation> => {
+    const response = await api.post('/api/v1/messages/groups', {
+      name: params.name,
+      member_ids: params.member_ids,
+      avatar_url: params.avatar_url ?? null,
+    })
+    return response.data
+  },
+
+  updateGroup: async (
+    conversationId: string,
+    params: { name?: string; avatar_url?: string | null },
+  ): Promise<Conversation> => {
+    const response = await api.patch(`/api/v1/messages/groups/${conversationId}`, params)
+    return response.data
+  },
+
+  addGroupMembers: async (
+    conversationId: string,
+    memberIds: string[],
+  ): Promise<Conversation> => {
+    const response = await api.post(`/api/v1/messages/groups/${conversationId}/members`, {
+      member_ids: memberIds,
+    })
+    return response.data
+  },
+
+  removeGroupMember: async (
+    conversationId: string,
+    userId: string,
+  ): Promise<Conversation | { left: boolean; conversation_id: string }> => {
+    const response = await api.delete(
+      `/api/v1/messages/groups/${conversationId}/members/${userId}`,
+    )
+    return response.data
+  },
+
+  deleteGroup: async (
+    conversationId: string,
+  ): Promise<{ deleted: boolean; conversation_id: string }> => {
+    const response = await api.delete(`/api/v1/messages/groups/${conversationId}`)
+    return response.data
+  },
+
+  startConversation: async (recipientId: string, message?: string, mediaId?: string | null): Promise<Conversation> => {
     const response = await api.post('/api/v1/messages/conversations/start', {
       recipient_id: recipientId,
       message: message || undefined,
+      media_id: mediaId || undefined,
+    })
+    return response.data
+  },
+
+  sendMessage: async (conversationId: string, content: string, mediaId?: string | null): Promise<Message> => {
+    const response = await api.post<Message>('/api/v1/messages', {
+      conversation_id: conversationId,
+      content,
+      media_id: mediaId || undefined,
     })
     return response.data
   },
