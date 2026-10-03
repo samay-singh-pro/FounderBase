@@ -6,7 +6,9 @@ from sqlalchemy.orm import Session, declarative_base, sessionmaker
 from app.core.config import settings
 
 connect_args = {"check_same_thread": False} if settings.database_url.startswith("sqlite") else {}
-engine = create_engine(settings.database_url, connect_args=connect_args)
+# pool_pre_ping replaces pooled connections the server has dropped — e.g. after
+# Neon's free tier suspends an idle database — instead of failing the request.
+engine = create_engine(settings.database_url, connect_args=connect_args, pool_pre_ping=True)
 
 # Enable foreign key constraints for SQLite
 if settings.database_url.startswith("sqlite"):
