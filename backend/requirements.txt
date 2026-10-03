@@ -1,0 +1,79 @@
+# FoundrBase backend dependencies (pinned to the versions used in development).
+# Generated for reproducible builds on Render / any host.
+
+# --- Web framework + server ---
+fastapi==0.135.2
+starlette==1.0.0
+uvicorn==0.42.0
+uvloop==0.22.1
+httptools==0.7.1
+watchfiles==1.1.1
+websockets==16.0
+python-multipart==0.0.29
+
+# --- Settings / validation ---
+pydantic==2.12.5
+pydantic-settings==2.13.1
+pydantic_core==2.41.5
+annotated-types==0.7.0
+annotated-doc==0.0.4
+typing_extensions==4.15.0
+typing-inspection==0.4.2
+python-dotenv==1.2.2
+
+# --- Database ---
+SQLAlchemy==2.0.48
+# Postgres driver — only used when DATABASE_URL points at Postgres (e.g. Neon).
+psycopg2-binary==2.9.10
+
+# --- Auth / security ---
+python-jose==3.5.0
+passlib==1.7.4
+bcrypt==5.0.0
+cryptography==46.0.6
+ecdsa==0.19.2
+rsa==4.9.1
+pyasn1==0.6.3
+pyasn1_modules==0.4.2
+six==1.17.0
+cffi==2.0.0
+pycparser==3.0
+
+# --- Email validation ---
+email-validator==2.3.0
+dnspython==2.8.0
+
+# --- Media uploads (Cloudinary; optional, stub used when creds blank) ---
+cloudinary==1.44.2
+
+# --- Google Gemini AI (optional AI writing assistant) ---
+google-generativeai==0.8.6
+google-ai-generativelanguage==0.6.15
+google-api-core==2.30.3
+google-api-python-client==2.194.0
+google-auth==2.49.2
+google-auth-httplib2==0.3.1
+googleapis-common-protos==1.74.0
+proto-plus==1.27.2
+protobuf==5.29.6
+grpcio==1.80.0
+grpcio-status==1.71.2
+uritemplate==4.2.0
+httplib2==0.31.2
+tqdm==4.67.3
+
+# --- HTTP client stack ---
+httpx==0.28.1
+httpcore==1.0.9
+h11==0.16.0
+requests==2.33.1
+urllib3==2.6.3
+certifi==2026.4.22
+charset-normalizer==3.4.7
+idna==3.11
+anyio==4.13.0
+
+# --- Misc ---
+click==8.3.1
+PyYAML==6.0.3
+pyparsing==3.3.2

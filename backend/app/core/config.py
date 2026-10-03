@@ -2,11 +2,21 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
+    # env_ignore_empty: a blank env var (e.g. an optional key left empty in the
+    # Render dashboard) falls back to the default below instead of overriding it.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", extra="ignore", env_ignore_empty=True
+    )
 
     app_name: str = "FoundrBase API"
+    # SQLite by default. Point DATABASE_URL at a Postgres instance (e.g. Neon's
+    # free tier) to keep data across restarts on hosts with ephemeral disks.
     database_url: str = "sqlite:///./app.db"
-    
+
+    # CORS allowed origins — comma-separated list, or "*" for any origin.
+    # In production set CORS_ORIGINS to your deployed frontend URL(s).
+    cors_origins: str = "*"
+
     # JWT Settings
     secret_key: str = "your-secret-key-change-this-in-production"
     algorithm: str = "HS256"

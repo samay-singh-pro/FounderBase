@@ -1,0 +1,59 @@
+# Render Blueprint — deploys the FoundrBase API + frontend on Render's free tier.
+# Dashboard → New → Blueprint → pick this repo. See DEPLOYMENT.md for the walkthrough.
+
+services:
+  # FastAPI backend (Python web service).
+  - type: web
+    name: foundrbase-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    # Keep this a single process: WebSocket connections are tracked in memory.
+    # --forwarded-allow-ips trusts Render's proxy so redirects keep https.
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --forwarded-allow-ips '*'
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.7
+      - key: SECRET_KEY
+        generateValue: true
+      # Frontend URL(s), comma-separated, e.g. https://foundrbase-web.onrender.com.
+      # Leave blank to allow any origin.
+      - key: CORS_ORIGINS
+        sync: false
+      # Leave blank for SQLite (data is wiped whenever the free instance restarts).
+      # Paste a Postgres URL (e.g. from Neon's free tier) to keep data.
+      - key: DATABASE_URL
+        sync: false
+      # Optional integrations — leave blank to disable / use the built-in stubs.
+      - key: GOOGLE_GEMINI_API_KEY
+        sync: false
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false
+      - key: GIPHY_API_KEY
+        sync: false
+
+  # React frontend (static site, served from Render's CDN).
+  - type: web
+    name: foundrbase-web
+    runtime: static
+    rootDir: frontend
+    buildCommand: npm ci && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      # Public URL of the API service above, e.g. https://foundrbase-api.onrender.com.
+      # Baked in at build time — redeploy the site after changing it.
+      - key: VITE_API_URL
+        sync: false
+    routes:
+      # Client-side routing: serve index.html for any path that isn't a file.
+      - type: rewrite
+        source: /*
+        destination: /index.html

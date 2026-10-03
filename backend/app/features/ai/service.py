@@ -4,7 +4,6 @@ from app.core.config import settings
 import re
 
 # Configure Gemini API
-print(f"Configuring Gemini API with key: {settings.google_gemini_api_key[:10]}..." if settings.google_gemini_api_key else "No API key found")
 if settings.google_gemini_api_key:
     genai.configure(api_key=settings.google_gemini_api_key)
     print(f"Gemini API configured successfully with model: {settings.gemini_model}")

@@ -1,8 +1,7 @@
 import axios from 'axios'
 import { useAuthStore } from '@/store/authStore'
 import type { Media } from '@/services/media.service'
-
-const API_BASE_URL = 'http://127.0.0.1:8000'
+import { API_BASE_URL } from './config'
 
 export const api = axios.create({
   baseURL: API_BASE_URL,

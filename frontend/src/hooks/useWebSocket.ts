@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
 import { useAuthStore } from '@/store/authStore'
+import { WS_BASE_URL } from '@/lib/config'
 
 export interface WebSocketMessage {
   type: 'connection' | 'message' | 'typing' | 'error' | 'online_status'
@@ -40,7 +41,7 @@ export function useWebSocket(options: UseWebSocketOptions = {}) {
       isConnectingRef.current = true
       shouldReconnectRef.current = true
 
-      const ws = new WebSocket(`ws://localhost:8000/api/v1/messages/ws?token=${token}`)
+      const ws = new WebSocket(`${WS_BASE_URL}/api/v1/messages/ws?token=${token}`)
       wsRef.current = ws
 
       ws.onopen = () => {

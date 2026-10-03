@@ -81,10 +81,13 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS middleware (configure based on your needs)
+# CORS middleware. Origins come from settings.cors_origins (env: CORS_ORIGINS),
+# a comma-separated list or "*". Defaults to "*" so local dev keeps working;
+# set it to your deployed frontend URL in production.
+_cors_origins = [o.strip() for o in settings.cors_origins.split(",") if o.strip()] or ["*"]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify exact origins
+    allow_origins=_cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

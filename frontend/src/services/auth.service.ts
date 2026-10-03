@@ -23,6 +23,7 @@ export interface AuthResponse {
     location?: string
     website?: string
     created_at?: string
+    theme?: string
   }
 }
 

@@ -108,7 +108,7 @@ export function ChatInfo({
   onScrollToMessage,
   isMuted = false,
   onMuteConversation,
-  isBlocked = false,
+  isBlocked: _isBlocked = false,
   isBlockedByMe = false,
   isBlockedByThem: _isBlockedByThem = false,
   onBlockUser,
